@@ -1,4 +1,4 @@
 import { PartialType } from '@nestjs/mapped-types';
-import { CreateSmDto } from './create-sm.dto';
+import { CreateSMSDto } from './create-sm.dto';
 
-export class UpdateSmDto extends PartialType(CreateSmDto) {}
+export class UpdateSMSDto extends PartialType(CreateSMSDto) {}
