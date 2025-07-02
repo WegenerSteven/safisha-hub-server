@@ -11,6 +11,7 @@ import { Booking } from '../../bookings/entities/booking.entity';
 import { Payment } from '../../payment/entities/payment.entity';
 import { Review } from '../../reviews/entities/review.entity';
 import { Notification } from '../../notification/entities/notification.entity';
+import { Exclude } from 'class-transformer';
 
 export enum Role {
   CUSTOMER = 'customer',
@@ -21,11 +22,12 @@ export enum Role {
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id: string | number;
 
   @Column({ unique: true })
   email: string;
 
+  @Exclude()
   @Column()
   password: string;
 

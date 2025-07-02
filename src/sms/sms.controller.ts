@@ -8,16 +8,16 @@ import {
   Delete,
 } from '@nestjs/common';
 import { SmsService } from './sms.service';
-import { CreateSmDto } from './dto/create-sm.dto';
-import { UpdateSmDto } from './dto/update-sm.dto';
+import { CreateSMSDto } from './dto/create-sms.dto';
+import { UpdateSMSDto } from './dto/update-sms.dto';
 
 @Controller('sms')
 export class SmsController {
   constructor(private readonly smsService: SmsService) {}
 
   @Post()
-  create(@Body() createSmDto: CreateSmDto) {
-    return this.smsService.create(createSmDto);
+  create(@Body() createSmsDto: CreateSMSDto) {
+    return this.smsService.create(createSmsDto);
   }
 
   @Get()
@@ -31,8 +31,8 @@ export class SmsController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateSmDto: UpdateSmDto) {
-    return this.smsService.update(+id, updateSmDto);
+  update(@Param('id') id: string, @Body() updateSmsDto: UpdateSMSDto) {
+    return this.smsService.update(+id, updateSmsDto);
   }
 
   @Delete(':id')
