@@ -1,0 +1,583 @@
+### Variables
+@baseUrl = http://localhost:3000/api/v1
+@authToken = your-jwt-token-here
+@userId = user-uuid-here
+@serviceId = service-uuid-here
+@bookingId = booking-uuid-here
+@paymentId = payment-uuid-here
+@reviewId = review-uuid-here
+@locationId = location-uuid-here
+@providerId = provider-uuid-here
+
+###############################################################################
+# AUTHENTICATION ENDPOINTS
+###############################################################################
+
+### User Registration
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "first_name": "John",
+  "last_name": "Doe",
+  "email": "john.doe@example.com",
+  "password": "SecurePass123",
+  "phone": "+254712345678",
+  "role": "customer"
+}
+
+### User Login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "password": "SecurePass123"
+}
+
+### Refresh Token
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "refreshToken": "your-refresh-token"
+}
+
+### User Logout
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{authToken}}
+
+### Forgot Password
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com"
+}
+
+### Reset Password
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+  "token": "reset-password-token",
+  "newPassword": "NewSecurePass123"
+}
+
+### Verify Email
+GET {{baseUrl}}/auth/verify-email?token=verification-token
+
+###############################################################################
+# USER MANAGEMENT ENDPOINTS
+###############################################################################
+
+### Get All Users (with pagination and filtering)
+GET {{baseUrl}}/users?page=1&limit=10&search=john&role=customer&sortBy=created_at&sortOrder=DESC
+
+### Get User by ID
+GET {{baseUrl}}/users/{{userId}}
+
+### Get User Profile with Relations
+GET {{baseUrl}}/users/{{userId}}/profile
+
+### Get Users by Role
+GET {{baseUrl}}/users/role/customer
+
+### Create User (Admin)
+POST {{baseUrl}}/users
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "email": "jane.smith@example.com",
+  "password": "SecurePass123",
+  "phone": "+254712345679",
+  "role": "provider"
+}
+
+### Update User (Full Update)
+PUT {{baseUrl}}/users/{{userId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "first_name": "John Updated",
+  "last_name": "Doe Updated",
+  "phone": "+254712345680"
+}
+
+### Partial Update User
+PATCH {{baseUrl}}/users/{{userId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "first_name": "John Partially Updated"
+}
+
+### Update User Role (Admin only)
+PATCH {{baseUrl}}/users/{{userId}}/role
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "role": "admin"
+}
+
+### Verify User Email
+PATCH {{baseUrl}}/users/{{userId}}/verify-email
+Authorization: Bearer {{authToken}}
+
+### Check Email Availability
+GET {{baseUrl}}/users/check-email/jane.smith@example.com
+
+### Soft Delete User
+DELETE {{baseUrl}}/users/{{userId}}
+Authorization: Bearer {{authToken}}
+
+### Restore User
+POST {{baseUrl}}/users/{{userId}}/restore
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# SERVICE PROVIDER ENDPOINTS
+###############################################################################
+
+### Get All Service Providers
+GET {{baseUrl}}/service-providers?page=1&limit=10
+
+### Get Service Provider by ID
+GET {{baseUrl}}/service-providers/{{providerId}}
+
+### Create Service Provider
+POST {{baseUrl}}/service-providers
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "user_id": "{{userId}}",
+  "business_name": "CleanCar Services",
+  "description": "Professional car wash services",
+  "address": "123 Main Street, Nairobi",
+  "phone": "+254712345681"
+}
+
+### Update Service Provider
+PUT {{baseUrl}}/service-providers/{{providerId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "business_name": "Updated CleanCar Services",
+  "description": "Premium car wash services",
+  "address": "456 Updated Street, Nairobi"
+}
+
+### Delete Service Provider
+DELETE {{baseUrl}}/service-providers/{{providerId}}
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# LOCATION ENDPOINTS
+###############################################################################
+
+### Get All Locations
+GET {{baseUrl}}/locations
+
+### Get Location by ID
+GET {{baseUrl}}/locations/{{locationId}}
+
+### Get Nearby Locations
+GET {{baseUrl}}/locations/nearby?latitude=-1.2921&longitude=36.8219&radius=10
+
+### Create Location (Admin)
+POST {{baseUrl}}/locations
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Nairobi CBD",
+  "address": "Kenyatta Avenue, Nairobi",
+  "city": "Nairobi",
+  "county": "Nairobi",
+  "latitude": -1.2921,
+  "longitude": 36.8219
+}
+
+### Update Location (Admin)
+PUT {{baseUrl}}/locations/{{locationId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Updated Nairobi CBD",
+  "address": "Updated Kenyatta Avenue, Nairobi"
+}
+
+###############################################################################
+# SERVICE MANAGEMENT ENDPOINTS
+###############################################################################
+
+### Get All Services
+GET {{baseUrl}}/services?page=1&limit=10&category=premium&minPrice=500&maxPrice=2000
+
+### Get Service Details
+GET {{baseUrl}}/services/{{serviceId}}
+
+### Search Services
+GET {{baseUrl}}/services/search?q=car wash&location=nairobi&category=basic
+
+### Get Service Categories
+GET {{baseUrl}}/services/categories
+
+### Create Service (Provider)
+POST {{baseUrl}}/services
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "provider_id": "{{providerId}}",
+  "location_id": "{{locationId}}",
+  "name": "Premium Car Wash",
+  "description": "Complete exterior and interior cleaning",
+  "price": 1500.00,
+  "duration_minutes": 60,
+  "category": "premium",
+  "features": ["Exterior wash", "Interior cleaning", "Wax application"],
+  "image_url": "https://example.com/service-image.jpg"
+}
+
+### Update Service (Provider)
+PUT {{baseUrl}}/services/{{serviceId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "name": "Updated Premium Car Wash",
+  "price": 1800.00,
+  "description": "Updated complete cleaning service"
+}
+
+### Delete Service (Provider)
+DELETE {{baseUrl}}/services/{{serviceId}}
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# BOOKING MANAGEMENT ENDPOINTS
+###############################################################################
+
+### Get All User Bookings
+GET {{baseUrl}}/bookings?page=1&limit=10&status=pending
+
+### Get Booking Details
+GET {{baseUrl}}/bookings/{{bookingId}}
+
+### Get Booking History
+GET {{baseUrl}}/bookings/history?userId={{userId}}
+
+### Check Availability
+GET {{baseUrl}}/bookings/availability?serviceId={{serviceId}}&date=2025-07-10&time=10:00
+
+### Create Booking
+POST {{baseUrl}}/bookings
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "user_id": "{{userId}}",
+  "service_id": "{{serviceId}}",
+  "service_date": "2025-07-10",
+  "service_time": "14:30",
+  "total_amount": 1500.00,
+  "special_instructions": "Please call before arrival",
+  "vehicle_info": {
+    "make": "Toyota",
+    "model": "Camry",
+    "year": 2020,
+    "color": "White",
+    "plateNumber": "KCA 123A"
+  },
+  "booking_addons": [
+    {
+      "addon_id": "addon-uuid",
+      "price": 200.00
+    }
+  ]
+}
+
+### Update Booking
+PUT {{baseUrl}}/bookings/{{bookingId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "service_date": "2025-07-11",
+  "service_time": "15:00",
+  "special_instructions": "Updated instructions"
+}
+
+### Cancel Booking
+DELETE {{baseUrl}}/bookings/{{bookingId}}
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# PAYMENT PROCESSING ENDPOINTS
+###############################################################################
+
+### Create Payment Intent
+POST {{baseUrl}}/payments/create-intent
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "booking_id": "{{bookingId}}",
+  "amount": 1500.00,
+  "currency": "KES"
+}
+
+### Confirm Payment
+POST {{baseUrl}}/payments/confirm
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "payment_intent_id": "pi_stripe_payment_intent_id",
+  "booking_id": "{{bookingId}}"
+}
+
+### Get Payment History
+GET {{baseUrl}}/payments/history?userId={{userId}}&page=1&limit=10
+
+### M-Pesa Payment
+POST {{baseUrl}}/payments/mpesa
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "booking_id": "{{bookingId}}",
+  "phone_number": "+254712345678",
+  "amount": 1500.00
+}
+
+### Process Refund (Admin)
+POST {{baseUrl}}/payments/refund
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "payment_id": "{{paymentId}}",
+  "amount": 1500.00,
+  "reason": "Service cancelled"
+}
+
+###############################################################################
+# REVIEWS & RATINGS ENDPOINTS
+###############################################################################
+
+### Get All Reviews
+GET {{baseUrl}}/reviews?page=1&limit=10&rating=5
+
+### Get Service Reviews
+GET {{baseUrl}}/reviews/service/{{serviceId}}
+
+### Create Review
+POST {{baseUrl}}/reviews
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "booking_id": "{{bookingId}}",
+  "user_id": "{{userId}}",
+  "service_id": "{{serviceId}}",
+  "rating": 5,
+  "comment": "Excellent service! Very satisfied with the quality."
+}
+
+### Update Review
+PUT {{baseUrl}}/reviews/{{reviewId}}
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "rating": 4,
+  "comment": "Updated review - Good service overall."
+}
+
+### Delete Review
+DELETE {{baseUrl}}/reviews/{{reviewId}}
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# NOTIFICATIONS ENDPOINTS
+###############################################################################
+
+### Get User Notifications
+GET {{baseUrl}}/notifications?userId={{userId}}&status=unread&page=1&limit=10
+
+### Create Notification
+POST {{baseUrl}}/notifications
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "user_id": "{{userId}}",
+  "type": "booking_confirmation",
+  "title": "Booking Confirmed",
+  "message": "Your booking has been confirmed for July 10, 2025 at 2:30 PM",
+  "data": {
+    "booking_id": "{{bookingId}}",
+    "service_name": "Premium Car Wash"
+  }
+}
+
+### Mark Notification as Read
+PATCH {{baseUrl}}/notifications/{{notificationId}}/read
+Authorization: Bearer {{authToken}}
+
+### Delete Notification
+DELETE {{baseUrl}}/notifications/{{notificationId}}
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# ANALYTICS & REPORTS ENDPOINTS
+###############################################################################
+
+### Get Dashboard Metrics
+GET {{baseUrl}}/analytics/dashboard
+Authorization: Bearer {{authToken}}
+
+### Get Revenue Analytics
+GET {{baseUrl}}/analytics/revenue?startDate=2025-07-01&endDate=2025-07-31
+Authorization: Bearer {{authToken}}
+
+### Get Booking Analytics
+GET {{baseUrl}}/analytics/bookings?period=monthly&year=2025
+Authorization: Bearer {{authToken}}
+
+### Get Customer Analytics
+GET {{baseUrl}}/analytics/customers?period=weekly
+Authorization: Bearer {{authToken}}
+
+### Get Service Performance
+GET {{baseUrl}}/analytics/services?serviceId={{serviceId}}&period=monthly
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# EMAIL SERVICE ENDPOINTS
+###############################################################################
+
+### Send Email
+POST {{baseUrl}}/email/send
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "to_email": "customer@example.com",
+  "subject": "Booking Confirmation",
+  "body": "Your booking has been confirmed",
+  "html_body": "<h1>Booking Confirmed</h1><p>Thank you for your booking!</p>",
+  "type": "booking_confirmation",
+  "user_id": "{{userId}}",
+  "booking_id": "{{bookingId}}"
+}
+
+### Get Email Logs
+GET {{baseUrl}}/email/logs?page=1&limit=10&status=sent
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# SMS SERVICE ENDPOINTS
+###############################################################################
+
+### Send SMS
+POST {{baseUrl}}/sms/send
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+{
+  "phone_number": "+254712345678",
+  "message": "Your booking is confirmed for July 10, 2025 at 2:30 PM",
+  "type": "booking_confirmation",
+  "user_id": "{{userId}}",
+  "booking_id": "{{bookingId}}"
+}
+
+### Get SMS Logs
+GET {{baseUrl}}/sms/logs?page=1&limit=10&status=sent
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# HEALTH CHECK ENDPOINTS
+###############################################################################
+
+### API Health Check
+GET {{baseUrl}}/health
+
+### Database Health Check
+GET {{baseUrl}}/health/db
+
+### Redis Health Check
+GET {{baseUrl}}/health/redis
+
+###############################################################################
+# ADMIN ENDPOINTS
+###############################################################################
+
+### Get System Statistics
+GET {{baseUrl}}/admin/stats
+Authorization: Bearer {{authToken}}
+
+### Get All Users (Admin)
+GET {{baseUrl}}/admin/users?page=1&limit=20
+Authorization: Bearer {{authToken}}
+
+### Get All Bookings (Admin)
+GET {{baseUrl}}/admin/bookings?page=1&limit=20&status=all
+Authorization: Bearer {{authToken}}
+
+### System Configuration
+GET {{baseUrl}}/admin/config
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# FILE UPLOAD ENDPOINTS
+###############################################################################
+
+### Upload Service Image
+POST {{baseUrl}}/upload/service-image
+Content-Type: multipart/form-data
+Authorization: Bearer {{authToken}}
+
+### Upload Profile Picture
+POST {{baseUrl}}/upload/profile-picture
+Content-Type: multipart/form-data
+Authorization: Bearer {{authToken}}
+
+###############################################################################
+# SEARCH ENDPOINTS
+###############################################################################
+
+### Global Search
+GET {{baseUrl}}/search?q=car wash&type=services&location=nairobi
+
+### Advanced Service Search
+GET {{baseUrl}}/search/services?query=premium&minPrice=1000&maxPrice=3000&category=premium&location=nairobi&sortBy=price&sortOrder=asc
+
+###############################################################################
+# UTILITY ENDPOINTS
+###############################################################################
+
+### Get Service Categories
+GET {{baseUrl}}/utils/service-categories
+
+### Get Booking Statuses
+GET {{baseUrl}}/utils/booking-statuses
+
+### Get Payment Methods
+GET {{baseUrl}}/utils/payment-methods
+
+### Get User Roles
+GET {{baseUrl}}/utils/user-roles
