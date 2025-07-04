@@ -1,4 +1,279 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Role, User } from '../users/entities/user.entity';
+import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
+import { SignInDto } from './dto/signin.dto';
+import { SignUpDto } from './dto/signup.dto';
 
 @Injectable()
-export class AuthService {}
+export class AuthService {
+  constructor(
+    @InjectRepository(User) private userRepository: Repository<User>,
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
+
+  // Helper method to generate access and refresh tokens
+  private async getTokens(userId: string, email: string, role: Role) {
+    const payload = {
+      sub: userId,
+      email: email,
+      role: role,
+    };
+
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_ACCESS_EXPIRATION',
+          '15m',
+        ),
+      }),
+      this.jwtService.signAsync(payload, {
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.configService.get<string>(
+          'JWT_REFRESH_EXPIRATION',
+          '7d',
+        ),
+      }),
+    ]);
+
+    return { accessToken, refreshToken };
+  }
+
+  // Method to hash data
+  private async hashData(data: string): Promise<string> {
+    const salt = await bcrypt.genSalt(10);
+    return await bcrypt.hash(data, salt);
+  }
+
+  // Method to save refresh token
+  private async updateRefreshToken(
+    userId: string,
+    refreshToken: string | null,
+  ) {
+    const hashedRefreshToken = refreshToken
+      ? await this.hashData(refreshToken)
+      : null;
+    await this.userRepository.update(userId, {
+      hashedRefreshToken: hashedRefreshToken || undefined,
+    });
+  }
+
+  // Sign up new user
+  async signUp(signUpDto: SignUpDto) {
+    // Check if user already exists
+    const existingUser = await this.userRepository.findOne({
+      where: { email: signUpDto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+
+    // Hash password
+    const hashedPassword = await this.hashData(signUpDto.password);
+
+    // Create new user
+    const user = this.userRepository.create({
+      first_name: signUpDto.first_name,
+      last_name: signUpDto.last_name,
+      email: signUpDto.email,
+      password: hashedPassword,
+      phone: signUpDto.phone,
+      role: signUpDto.role,
+      is_active: true,
+      email_verified_at: undefined,
+    });
+
+    const savedUser = await this.userRepository.save(user);
+
+    // Generate tokens
+    const tokens = await this.getTokens(
+      savedUser.id,
+      savedUser.email,
+      savedUser.role,
+    );
+
+    // Save refresh token
+    await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
+
+    // Remove password from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, hashedRefreshToken, ...userResponse } = savedUser;
+
+    return {
+      user: userResponse,
+      tokens,
+      message: 'User registered successfully',
+    };
+  }
+
+  // Sign in user
+  async signIn(signInDto: SignInDto) {
+    const { email, password } = signInDto;
+
+    // Find user by email with password
+    const user = await this.userRepository.findOne({
+      where: { email },
+      select: [
+        'id',
+        'email',
+        'password',
+        'role',
+        'is_active',
+        'first_name',
+        'last_name',
+      ],
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check if user is active
+    if (!user.is_active) {
+      throw new ForbiddenException('Account is deactivated');
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Generate tokens
+    const tokens = await this.getTokens(user.id, user.email, user.role);
+
+    // Save refresh token
+    await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    // Remove password from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: userPassword, ...userResponse } = user;
+
+    return {
+      user: userResponse,
+      tokens,
+      message: 'User signed in successfully',
+    };
+  }
+
+  // Sign out user
+  async signOut(userId: string) {
+    await this.updateRefreshToken(userId, null);
+    return { message: 'Successfully signed out' };
+  }
+
+  // Refresh tokens
+  async refreshTokens(userId: string, refreshToken: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'role', 'hashedRefreshToken', 'is_active'],
+    });
+
+    if (!user || !user.hashedRefreshToken) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    if (!user.is_active) {
+      throw new ForbiddenException('Account is deactivated');
+    }
+
+    const refreshTokenMatches = await bcrypt.compare(
+      refreshToken,
+      user.hashedRefreshToken,
+    );
+
+    if (!refreshTokenMatches) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    const tokens = await this.getTokens(user.id, user.email, user.role);
+    await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    return {
+      tokens,
+      message: 'Tokens refreshed successfully',
+    };
+  }
+
+  // Validate user by ID (for guards)
+  async validateUser(userId: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, is_active: true },
+      select: ['id', 'email', 'role', 'first_name', 'last_name', 'is_active'],
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return user;
+  }
+
+  // Forgot password
+  async forgotPassword(email: string) {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      // Don't reveal if email exists or not
+      return { message: 'If email exists, password reset link has been sent' };
+    }
+
+    // Generate password reset token
+    const resetToken = await this.jwtService.signAsync(
+      { sub: user.id, email: user.email, type: 'password-reset' },
+      {
+        secret: this.configService.getOrThrow<string>('JWT_RESET_SECRET'),
+        expiresIn: '1h',
+      },
+    );
+
+    // Here you would typically send an email with the reset token
+    // For now, we'll just return it (remove this in production)
+    return {
+      message: 'Password reset link has been sent',
+      resetToken, // Remove this in production
+    };
+  }
+
+  // Reset password
+  async resetPassword(token: string, newPassword: string) {
+    try {
+      const payload: any = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.getOrThrow<string>('JWT_RESET_SECRET'),
+      });
+
+      if (payload.type !== 'password-reset') {
+        throw new UnauthorizedException('Invalid token');
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub, email: payload.email },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid token');
+      }
+
+      const hashedPassword = await this.hashData(newPassword);
+      await this.userRepository.update(user.id, { password: hashedPassword });
+
+      // Sign out from all devices
+      await this.updateRefreshToken(user.id, null);
+
+      return { message: 'Password reset successfully' };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired token');
+    }
+  }
+}
