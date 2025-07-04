@@ -8,6 +8,18 @@ import { AllExceptionsFilter } from './http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable CORS for frontend integration
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:5173',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
+
   //validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -33,41 +45,55 @@ async function bootstrap() {
   //swagger setup
   const config = new DocumentBuilder()
     .setTitle('Safisha Hub API')
-    .setDescription('API documentation for Safisha Hub')
+    .setDescription(
+      'API documentation for Safisha Hub car wash management system',
+    )
     .setVersion('1.0')
-    .addTag('users')
-    .addTag('service-providers')
-    .addTag('bookings')
-    .addTag('payments')
-    .addTag('reviews')
-    .addTag('notifications')
+    .addTag('Authentication', 'Authentication endpoints')
+    .addTag('Users', 'User management endpoints')
+    .addTag('customers', 'Customer management endpoints')
+    .addTag('service-providers', 'Service provider management endpoints')
+    .addTag('services', 'Service management endpoints')
+    .addTag('bookings', 'Booking management endpoints')
+    .addTag('payments', 'Payment processing endpoints')
+    .addTag('reviews', 'Review management endpoints')
+    .addTag('notifications', 'Notification endpoints')
+    .addTag('locations', 'Location management endpoints')
+    .addTag('email-service', 'Email service endpoints')
+    .addTag('sms', 'SMS service endpoints')
+    .addTag('analytics', 'Analytics endpoints')
     .addBearerAuth()
-    .setExternalDoc('Find more info here', 'https://example.com')
-    .addServer(`http://localhost:3000/`, 'Development Server')
-    .addServer(`https://api.safishahub.com`, 'Production Server')
-    .addServer(`https://staging.safishahub.com`, 'Staging Server')
+    .addServer(`http://localhost:${PORT}/`, 'Development Server')
+    .addServer(`https://api.safishahub.com/`, 'Production Server')
     .build();
 
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory, {
-    jsonDocumentUrl: '/api-json',
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
       tagsSorter: 'alpha',
-      docsExpansion: 'none',
+      operationsSorter: 'alpha',
+      docExpansion: 'none',
       filter: true,
+      showRequestDuration: true,
     },
-    customCss: `
-    .swagger-ui .topbar { display: none; }
-    .swagger-ui .scheme-container { display: none; }
-    .swagger-ui .info { margin-bottom: 20px; }`,
     customSiteTitle: 'Safisha Hub API Documentation',
+    customfavIcon: '/favicon.ico',
+    customCss: `
+      .swagger-ui .topbar { display: none; }
+      .swagger-ui .info { margin-bottom: 20px; }
+      .swagger-ui .scheme-container { background: #f7f7f7; }
+    `,
   });
 
   //listen on port 3000
   await app.listen(PORT, () => {
-    console.log(`Server is running on https://localhost:${PORT}`);
+    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(
+      `Swagger documentation available at http://localhost:${PORT}/api/docs`,
+    );
     console.log('Database connected successfully');
   });
 }
-bootstrap();
+
+void bootstrap();

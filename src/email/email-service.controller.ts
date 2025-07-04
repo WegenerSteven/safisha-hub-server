@@ -7,10 +7,12 @@ import {
   Param,
   Delete,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { EmailServiceService } from './email-service.service';
 import { CreateEmailServiceDto } from './dto/create-email-service.dto';
 import { UpdateEmailServiceDto } from './dto/update-email-service.dto';
 
+@ApiTags('email-service')
 @Controller('email-service')
 export class EmailServiceController {
   constructor(private readonly emailServiceService: EmailServiceService) {}

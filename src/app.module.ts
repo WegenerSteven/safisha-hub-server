@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { LoggerMiddleware } from './logger.middleware';
 import { DatabaseModule } from './database/database.module';
-import { ConfigModule } from '@nestjs/config/dist/config.module';
+import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
+import { CustomersModule } from './customers/customers.module';
 import { ServicesModule } from './services/services.module';
 import { ServiceProviderModule } from './service-provider/service-provider.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -15,12 +17,14 @@ import { EmailServiceModule } from './email/email-service.module';
 import { SmsModule } from './sms/sms.module';
 import { AuthModule } from './auth/auth.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { AtGuard } from './auth/guards/at.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env'] }),
     DatabaseModule,
     UsersModule,
+    CustomersModule,
     ServicesModule,
     ServiceProviderModule,
     BookingsModule,
@@ -34,7 +38,12 @@ import { AnalyticsModule } from './analytics/analytics.module';
     AnalyticsModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AtGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
