@@ -16,16 +16,25 @@ import {
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { Role } from './entities/user.entity';
 import { UpdateRoleDto } from './dto/update-role.dto';
-import { ApiTags } from '@nestjs/swagger/dist/decorators/api-use-tags.decorator';
-import { ApiOperation, ApiResponse, ApiQuery, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+  ApiBearerAuth as AuthBearerAuth,
+} from '@nestjs/swagger';
 import { FindUsersDto } from './dto/find-users.dto';
+import { UserProfileResponse } from 'src/types/profile.types';
 
 @ApiTags('Users')
 @UseInterceptors(ClassSerializerInterceptor) // Automatically excludes password field
+@AuthBearerAuth()
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -33,6 +42,19 @@ export class UsersController {
   @Post()
   async create(@Body() createUserDto: CreateUserDto) {
     return await this.usersService.create(createUserDto);
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user with role-specific data' })
+  @ApiResponse({
+    status: 201,
+    description: 'User successfully registered with profile data',
+    type: User,
+  })
+  @ApiResponse({ status: 409, description: 'User with email already exists' })
+  async register(@Body() registerUserDto: RegisterUserDto) {
+    return await this.usersService.register(registerUserDto);
   }
 
   @Get()
@@ -130,7 +152,9 @@ export class UsersController {
     status: 404,
     description: 'User not found',
   })
-  async getProfile(@Param('id', ParseUUIDPipe) id: string): Promise<User> {
+  async getProfile(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<UserProfileResponse> {
     return await this.usersService.getProfile(id);
   }
 
@@ -265,4 +289,38 @@ export class UsersController {
   async restore(@Param('id', ParseUUIDPipe) id: string): Promise<User> {
     return await this.usersService.restore(id);
   }
+
+  //get user profile with role-specific data
+  @Get('profile/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get user profile with role-specific data' })
+  @ApiParam({ name: 'id', description: 'User ID', type: 'string' })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  async getUserProfile(@Param('id', ParseUUIDPipe) id: string) {
+    return await this.usersService.getProfile(id);
+  }
+
+  // // Update the updateProfile method in the controller
+  // @Patch(':id/profile')
+  // @HttpCode(HttpStatus.OK)
+  // @UseGuards(AccessTokenGuard)
+  // @ApiOperation({ summary: 'Update user profile' })
+  // @ApiResponse({
+  //   status: 200,
+  //   description: 'User profile updated successfully',
+  // })
+  // async updateProfile(
+  //   @Param('id', ParseUUIDPipe) id: string,
+  //   @Body() updateData: {
+  //     user?: UpdateUserDto;
+  //     customer?: UpdateCustomerDto;
+  //     provider?: UpdateServiceProviderDto;
+  //   },
+  // ): Promise<UserProfileResponse> {
+  //   return await this.usersService.updateProfile(id, updateData);
+  // }
 }

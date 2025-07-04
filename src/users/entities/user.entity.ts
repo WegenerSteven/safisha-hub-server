@@ -7,6 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { ServiceProvider } from '../../service-provider/entities/service-provider.entity';
+import { Customer } from '../../customers/entities/customer.entity';
 import { Booking } from '../../bookings/entities/booking.entity';
 import { Payment } from '../../payment/entities/payment.entity';
 import { Review } from '../../reviews/entities/review.entity';
@@ -15,14 +16,14 @@ import { Exclude } from 'class-transformer';
 
 export enum Role {
   CUSTOMER = 'customer',
-  PROVIDER = 'provider',
+  SERVICE_PROVIDER = 'service_provider',
   ADMIN = 'admin',
 }
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  id: string | number;
+  id: string;
 
   @Column({ unique: true })
   email: string;
@@ -43,14 +44,20 @@ export class User {
   @Column({ type: 'enum', enum: Role, default: Role.CUSTOMER })
   role: Role;
 
+  @Column({ nullable: true })
+  hashedRefreshToken?: string;
+
   @Column({ default: true })
   is_active: boolean;
 
   @Column({ type: 'timestamp', nullable: true })
-  email_verified_at: Date;
+  email_verified_at?: Date;
 
   @OneToMany(() => ServiceProvider, (provider) => provider.user)
   service_providers: ServiceProvider[];
+
+  @OneToMany(() => Customer, (customer) => customer.user)
+  customers: Customer[];
 
   @OneToMany(() => Booking, (booking) => booking.user)
   bookings: Booking[];

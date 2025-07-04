@@ -7,10 +7,14 @@ import {
   Param,
   Delete,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ServiceProviderService } from './service-provider.service';
 import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
+import { GetCurrentUser } from 'src/auth/decorators/get-current-user.decorator';
+import { User } from 'src/users/entities/user.entity';
 
+@ApiTags('service-providers')
 @Controller('service-provider')
 export class ServiceProviderController {
   constructor(
@@ -18,8 +22,14 @@ export class ServiceProviderController {
   ) {}
 
   @Post()
-  create(@Body() createServiceProviderDto: CreateServiceProviderDto) {
-    return this.serviceProviderService.create(createServiceProviderDto);
+  async create(
+    @Body() createServiceProviderDto: CreateServiceProviderDto,
+    @GetCurrentUser() currentUser: User,
+  ) {
+    return await this.serviceProviderService.create(
+      currentUser.id,
+      createServiceProviderDto,
+    );
   }
 
   @Get()
@@ -29,7 +39,7 @@ export class ServiceProviderController {
 
   @Get(':id')
   findOne(@Param('id') id: string) {
-    return this.serviceProviderService.findOne(+id);
+    return this.serviceProviderService.findOne(id);
   }
 
   @Patch(':id')
@@ -37,11 +47,11 @@ export class ServiceProviderController {
     @Param('id') id: string,
     @Body() updateServiceProviderDto: UpdateServiceProviderDto,
   ) {
-    return this.serviceProviderService.update(+id, updateServiceProviderDto);
+    return this.serviceProviderService.update(id, updateServiceProviderDto);
   }
 
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.serviceProviderService.remove(+id);
+    return this.serviceProviderService.remove(id);
   }
 }

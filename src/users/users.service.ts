@@ -2,14 +2,29 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { UserNotFoundException } from './exceptions/user-not-found.exception';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateServiceProviderDto } from '../service-provider/dto/update-service-provider.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Role, User } from './entities/user.entity';
+import { Customer } from '../customers/entities/customer.entity';
+import { CustomersService } from '../customers/customers.service';
+import { ServiceProviderService } from '../service-provider/service-provider.service';
 import * as bcrypt from 'bcrypt';
+import {
+  UserProfileResponse,
+  UserWithProfile,
+  UserRegistrationResponse,
+} from 'src/types/profile.types';
+import { ServiceProvider } from 'src/service-provider/entities/service-provider.entity';
+import { UpdateCustomerDto } from 'src/customers/dto/update-customer.dto';
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(User) private userRepository: Repository<User>,
+    private customersService: CustomersService,
+    private serviceProviderService: ServiceProviderService,
+    private dataSource: DataSource,
   ) {}
 
   // //hash password before saving to db
@@ -233,11 +248,17 @@ export class UsersService {
     return await this.findOne(id);
   }
 
-  //get user profile
-  async getProfile(id: string): Promise<User> {
+  //get user profile with role-specific data
+  async getProfile(userId: string): Promise<UserProfileResponse> {
     const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ['service_providers', 'bookings', 'reviews', 'notifications'],
+      where: { id: userId },
+      relations: [
+        'service_providers',
+        'customers',
+        'bookings',
+        'reviews',
+        'notifications',
+      ],
       select: [
         'id',
         'email',
@@ -253,9 +274,159 @@ export class UsersService {
     });
 
     if (!user) {
-      throw new UserNotFoundException(id);
+      throw new UserNotFoundException(userId);
     }
 
-    return user;
+    let profile: Customer | ServiceProvider | null = null;
+
+    if (user.role === Role.CUSTOMER) {
+      try {
+        profile = await this.customersService.findByUserId(userId);
+      } catch {
+        // If customer profile doesn't exist, create one with defaults
+        profile = await this.customersService.create(userId, {
+          email_notifications: true,
+          sms_notifications: true,
+          preferred_contact_method: 'email',
+        });
+      }
+    } else if (user.role === Role.SERVICE_PROVIDER) {
+      try {
+        profile = await this.serviceProviderService.findByUserId(userId);
+      } catch {
+        // Provider profile should exist, but handle gracefully
+        profile = null;
+      }
+    }
+
+    return {
+      user,
+      profile,
+    } as UserProfileResponse;
+  }
+
+  async register(
+    registerUserDto: RegisterUserDto,
+  ): Promise<UserWithProfile<Customer | ServiceProvider>> {
+    // Check if email already exists
+    const existingUser = await this.userRepository.findOneBy({
+      email: registerUserDto.email,
+    });
+    if (existingUser) {
+      throw new ConflictException(
+        `User with email '${registerUserDto.email}' already exists`,
+      );
+    }
+
+    // Use database transaction to ensure data consistency
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Hash password
+      const saltRounds = 10;
+      const hashPassword = await bcrypt.hash(
+        registerUserDto.password,
+        saltRounds,
+      );
+
+      // Create user data
+      const userData = {
+        first_name: registerUserDto.first_name,
+        last_name: registerUserDto.last_name,
+        email: registerUserDto.email,
+        password: hashPassword,
+        phone: registerUserDto.phone,
+        role: registerUserDto.role,
+        is_active: registerUserDto.is_active ?? true,
+      };
+
+      // Create and save user
+      const user = queryRunner.manager.create(User, userData);
+      const savedUser = await queryRunner.manager.save(user);
+
+      let profile: Customer | ServiceProvider | null = null;
+
+      // Create role-specific profile
+      if (registerUserDto.role === Role.CUSTOMER) {
+        if (registerUserDto.customer_data) {
+          profile = await this.customersService.create(
+            savedUser.id,
+            registerUserDto.customer_data,
+          );
+        } else {
+          // Create with default values if no customer data provided
+          profile = await this.customersService.create(savedUser.id, {
+            email_notifications: true,
+            sms_notifications: true,
+            preferred_contact_method: 'email',
+          });
+        }
+      } else if (registerUserDto.role === Role.SERVICE_PROVIDER) {
+        if (!registerUserDto.provider_data) {
+          throw new ConflictException(
+            'Service provider data is required for provider registration',
+          );
+        }
+        profile = await this.serviceProviderService.create(
+          savedUser.id,
+          registerUserDto.provider_data,
+        );
+      }
+
+      // Commit transaction
+      await queryRunner.commitTransaction();
+
+      // Remove password from response
+      const { password, ...userResponse } = savedUser;
+
+      return {
+        user: userResponse,
+        profile,
+      } as UserRegistrationResponse;
+    } catch (error) {
+      // Rollback transaction on error
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      // Release query runner
+      await queryRunner.release();
+    }
+  }
+
+  async updateProfile(
+    userId: string,
+    updateData: {
+      user?: UpdateUserDto;
+      customer?: UpdateCustomerDto;
+      provider?: UpdateServiceProviderDto;
+    },
+  ): Promise<UserProfileResponse> {
+    const user = await this.findOne(userId);
+
+    // Update user data if provided
+    if (updateData.user) {
+      await this.update(userId, updateData.user);
+    }
+
+    // Update user data if provided
+    if (updateData.user) {
+      await this.update(userId, updateData.user);
+    }
+
+    // Update role-specific profile
+    if (user.role === Role.CUSTOMER && updateData.customer) {
+      const customer = await this.customersService.findByUserId(userId);
+      await this.customersService.update(customer.id, updateData.customer); // Fixed: Use proper DTO
+    } else if (user.role === Role.SERVICE_PROVIDER && updateData.provider) {
+      const provider = await this.serviceProviderService.findByUserId(userId);
+      await this.serviceProviderService.update(
+        provider.id,
+        updateData.provider,
+      ); // Fixed: Use proper DTO
+    }
+
+    return this.getProfile(userId);
   }
 }

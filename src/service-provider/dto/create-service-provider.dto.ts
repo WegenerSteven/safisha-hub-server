@@ -1,16 +1,12 @@
 import {
   IsString,
   IsOptional,
-  IsUUID,
   MaxLength,
   MinLength,
   IsPhoneNumber,
 } from 'class-validator';
 
 export class CreateServiceProviderDto {
-  @IsUUID()
-  user_id: string;
-
   @IsString()
   @MinLength(2)
   @MaxLength(255)
