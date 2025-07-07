@@ -1,5 +1,5 @@
 ### Variables
-@baseUrl = http://localhost:3000/api/v1
+@baseUrl = http://localhost:3001/api/v1
 @authToken = your-jwt-token-here
 @userId = fbe299b1-0252-4912-bfaa-a39db9f73e7a
 @serviceId = service-uuid-here

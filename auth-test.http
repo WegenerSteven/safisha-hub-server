@@ -1,7 +1,7 @@
 ### SafishaHub Authentication Testing
 
 # Base URL
-@baseUrl = http://localhost:3000
+@baseUrl = http://localhost:3001
 @contentType = application/json
 
 ### 1. Sign Up - Register new customer

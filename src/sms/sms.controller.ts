@@ -7,12 +7,12 @@ import {
   Param,
   Delete,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+// import { ApiTags } from '@nestjs/swagger';
 import { SmsService } from './sms.service';
 import { CreateSMSDto } from './dto/create-sms.dto';
 import { UpdateSMSDto } from './dto/update-sms.dto';
 
-@ApiTags('sms')
+// @ApiTags('sms')
 @Controller('sms')
 export class SmsController {
   constructor(private readonly smsService: SmsService) {}

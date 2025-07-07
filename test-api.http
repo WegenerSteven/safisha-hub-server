@@ -1,7 +1,7 @@
 ### Test Authentication Endpoints for SafishaHub
 
 ### 1. Test User Registration (Customer)
-POST http://localhost:3000/api/v1/auth/signup
+POST http://localhost:3001/api/v1/auth/signup
 Content-Type: application/json
 
 {
@@ -14,7 +14,7 @@ Content-Type: application/json
 }
 
 ### 2. Test User Registration (Service Provider)
-POST http://localhost:3000/api/v1/auth/signup
+POST http://localhost:3001/api/v1/auth/signup
 Content-Type: application/json
 
 {
@@ -27,7 +27,7 @@ Content-Type: application/json
 }
 
 ### 3. Test User Login
-POST http://localhost:3000/api/v1/auth/signin
+POST http://localhost:3001/api/v1/auth/signin
 Content-Type: application/json
 
 {
@@ -36,22 +36,22 @@ Content-Type: application/json
 }
 
 ### 4. Test Get User Profile (after login - replace with actual token)
-GET http://localhost:3000/api/v1/auth/profile
+GET http://localhost:3001/api/v1/auth/profile
 Authorization: Bearer YOUR_ACCESS_TOKEN_HERE
 
 ### 5. Test Refresh Token (after login - replace with actual refresh token)
-POST http://localhost:3000/api/v1/auth/refresh
+POST http://localhost:3001/api/v1/auth/refresh
 Authorization: Bearer YOUR_REFRESH_TOKEN_HERE
 
 ### 6. Test Get All Users
-GET http://localhost:3000/api/v1/users
+GET http://localhost:3001/api/v1/users
 
 ### 7. Test Health Check - Swagger Documentation
-GET http://localhost:3000/api/docs
+GET http://localhost:3001/api/docs
 
 ### 8. Test Get Users by Role
-GET http://localhost:3000/api/v1/users/role/customer
+GET http://localhost:3001/api/v1/users/role/customer
 
 ### 9. Test Logout (after login - replace with actual token)
-POST http://localhost:3000/api/v1/auth/signout
+POST http://localhost:3001/api/v1/auth/signout
 Authorization: Bearer YOUR_ACCESS_TOKEN_HERE

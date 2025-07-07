@@ -94,8 +94,20 @@ export class UsersService {
     }
 
     //add sorting functionality
-    const sortBy = options?.sortBy || 'createdAt';
-    const sortOrder = options?.sortOrder || 'DESC';
+    const allowedSortFields = [
+      'first_name',
+      'last_name',
+      'email',
+      'created_at',
+      'updated_at',
+      'role',
+    ];
+    const sortBy = allowedSortFields.includes(options?.sortBy || '')
+      ? options?.sortBy || 'created_at'
+      : 'created_at';
+    const sortOrder = ['ASC', 'DESC'].includes(options?.sortOrder || '')
+      ? options?.sortOrder || 'DESC'
+      : 'DESC';
     queryBuilder.orderBy(`user.${sortBy}`, sortOrder);
 
     //add pagination
@@ -111,8 +123,8 @@ export class UsersService {
       'user.role',
       'user.is_active',
       'user.email_verified_at',
-      'user.createdAt',
-      'user.updatedAt',
+      'user.created_at',
+      'user.updated_at',
     ]);
     const [users, total] = await queryBuilder.getManyAndCount();
     return {

@@ -7,7 +7,7 @@ import {
   Param,
   Delete,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ServiceProviderService } from './service-provider.service';
 import { CreateServiceProviderDto } from './dto/create-service-provider.dto';
 import { UpdateServiceProviderDto } from './dto/update-service-provider.dto';
@@ -15,6 +15,7 @@ import { GetCurrentUser } from 'src/auth/decorators/get-current-user.decorator';
 import { User } from 'src/users/entities/user.entity';
 
 @ApiTags('service-providers')
+@ApiBearerAuth()
 @Controller('service-provider')
 export class ServiceProviderController {
   constructor(

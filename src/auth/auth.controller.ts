@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -16,12 +17,16 @@ import {
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/signin.dto';
 import { SignUpDto } from './dto/signup.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ResendVerificationDto } from './dto/resend-verification.dto';
+import {
+  AuthSuccessResponseDto,
+  ErrorResponseDto,
+  UserProfileResponseDto,
+} from './dto/auth-response.dto';
 import { Public } from './decorators/public.decorators';
 import {
-  GetCurrentUser,
   GetCurrentUserId,
   GetRefreshToken,
 } from './decorators/get-current-user.decorator';
@@ -36,14 +41,24 @@ export class AuthController {
   @Public()
   @Post('signup')
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user' })
+  @ApiOperation({
+    summary: 'Register a new user',
+    description: 'Create a new user account with email verification',
+  })
   @ApiResponse({
     status: 201,
     description: 'User has been successfully registered.',
+    type: AuthSuccessResponseDto,
   })
   @ApiResponse({
     status: 409,
     description: 'User with this email already exists.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data.',
+    type: ErrorResponseDto,
   })
   async signUp(@Body() signUpDto: SignUpDto) {
     return await this.authService.signUp(signUpDto);
@@ -52,14 +67,24 @@ export class AuthController {
   @Public()
   @Post('signin')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Sign in user' })
+  @ApiOperation({
+    summary: 'Sign in user',
+    description: 'Authenticate user and return access and refresh tokens',
+  })
   @ApiResponse({
     status: 200,
     description: 'User has been successfully signed in.',
+    type: AuthSuccessResponseDto,
   })
   @ApiResponse({
     status: 401,
-    description: 'Invalid credentials.',
+    description: 'Invalid credentials or unverified email.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data.',
+    type: ErrorResponseDto,
   })
   async signIn(@Body() signInDto: SignInDto) {
     return await this.authService.signIn(signInDto);
@@ -83,14 +108,25 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Refresh access token' })
+  @ApiOperation({
+    summary: 'Refresh access token',
+    description:
+      'Generate new access and refresh tokens using a valid refresh token',
+  })
   @ApiResponse({
     status: 200,
     description: 'Token has been successfully refreshed.',
+    type: AuthSuccessResponseDto,
   })
   @ApiResponse({
     status: 403,
-    description: 'Access denied.',
+    description: 'Access denied. Invalid refresh token.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized. Token expired or invalid.',
+    type: ErrorResponseDto,
   })
   async refreshTokens(
     @GetCurrentUserId() userId: string,
@@ -102,10 +138,24 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Request password reset' })
+  @ApiOperation({
+    summary: 'Request password reset',
+    description: 'Send a password reset link to the user email address',
+  })
   @ApiResponse({
     status: 200,
     description: 'Password reset link has been sent.',
+    type: AuthSuccessResponseDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User with this email not found.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid email format.',
+    type: ErrorResponseDto,
   })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return await this.authService.forgotPassword(forgotPasswordDto.email);
@@ -114,14 +164,24 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Reset password' })
+  @ApiOperation({
+    summary: 'Reset password',
+    description: 'Reset user password using a valid reset token',
+  })
   @ApiResponse({
     status: 200,
     description: 'Password has been successfully reset.',
+    type: AuthSuccessResponseDto,
   })
   @ApiResponse({
     status: 401,
     description: 'Invalid or expired token.',
+    type: ErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid input data.',
+    type: ErrorResponseDto,
   })
   async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return await this.authService.resetPassword(
@@ -133,16 +193,53 @@ export class AuthController {
   @UseGuards(AtGuard)
   @Get('profile')
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiOperation({
+    summary: 'Get current user profile',
+    description: 'Retrieve the authenticated user profile information',
+  })
   @ApiResponse({
     status: 200,
     description: 'User profile retrieved successfully.',
+    type: UserProfileResponseDto,
   })
   @ApiResponse({
     status: 401,
-    description: 'Unauthorized.',
+    description: 'Unauthorized. Invalid or expired token.',
+    type: ErrorResponseDto,
   })
   async getProfile(@GetCurrentUserId() userId: string) {
     return await this.authService.validateUser(userId);
+  }
+
+  @Public()
+  @Get('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify email address' })
+  @ApiResponse({
+    status: 200,
+    description: 'Email verified successfully.',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired verification token.',
+  })
+  async verifyEmail(@Query('token') token: string) {
+    return await this.authService.verifyEmail(token);
+  }
+
+  @Public()
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend email verification' })
+  @ApiResponse({
+    status: 200,
+    description: 'Verification email sent successfully.',
+  })
+  async resendVerification(
+    @Body() resendVerificationDto: ResendVerificationDto,
+  ) {
+    return await this.authService.resendVerificationEmail(
+      resendVerificationDto.email,
+    );
   }
 }

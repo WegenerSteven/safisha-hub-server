@@ -7,11 +7,17 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Role, User } from '../users/entities/user.entity';
+import { DataSource } from 'typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { SignInDto } from './dto/signin.dto';
 import { SignUpDto } from './dto/signup.dto';
+import {
+  PasswordResetPayload,
+  EmailVerificationPayload,
+} from './types/jwt.types';
+import { EmailService } from '../email/email-service.service'; // Assuming you have an EmailService for sending emails
 
 @Injectable()
 export class AuthService {
@@ -19,6 +25,8 @@ export class AuthService {
     @InjectRepository(User) private userRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private dataSource: DataSource, // Assuming you have a DataSource for transactions
+    private emailService: EmailService, // Assuming you have an EmailService for sending emails
   ) {}
 
   // Helper method to generate access and refresh tokens
@@ -79,42 +87,54 @@ export class AuthService {
       throw new ConflictException('User with this email already exists');
     }
 
-    // Hash password
-    const hashedPassword = await this.hashData(signUpDto.password);
+    // Use database transaction
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Create new user
-    const user = this.userRepository.create({
-      first_name: signUpDto.first_name,
-      last_name: signUpDto.last_name,
-      email: signUpDto.email,
-      password: hashedPassword,
-      phone: signUpDto.phone,
-      role: signUpDto.role,
-      is_active: true,
-      email_verified_at: undefined,
-    });
+    try {
+      // Hash password
+      const hashedPassword = await this.hashData(signUpDto.password);
 
-    const savedUser = await this.userRepository.save(user);
+      // Create new user
+      const user = this.userRepository.create({
+        first_name: signUpDto.first_name,
+        last_name: signUpDto.last_name,
+        email: signUpDto.email,
+        password: hashedPassword,
+        phone: signUpDto.phone,
+        role: signUpDto.role,
+        is_active: true,
+        email_verified_at: undefined,
+      });
 
-    // Generate tokens
-    const tokens = await this.getTokens(
-      savedUser.id,
-      savedUser.email,
-      savedUser.role,
-    );
+      const savedUser = await this.userRepository.save(user);
 
-    // Save refresh token
-    await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
+      // Generate tokens
+      const tokens = await this.getTokens(
+        savedUser.id,
+        savedUser.email,
+        savedUser.role,
+      );
 
-    // Remove password from response
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, hashedRefreshToken, ...userResponse } = savedUser;
+      // Save refresh token
+      await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
 
-    return {
-      user: userResponse,
-      tokens,
-      message: 'User registered successfully',
-    };
+      // Remove password from response
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { password, hashedRefreshToken, ...userResponse } = savedUser;
+
+      return {
+        user: userResponse,
+        tokens,
+        message: 'User registered successfully',
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // Sign in user
@@ -138,31 +158,35 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    // Check if user is active
-    if (!user.is_active) {
-      throw new ForbiddenException('Account is deactivated');
-    }
-
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    // Check if email is verified
+    // if (!user.email_verified_at) {
+    //   throw new UnauthorizedException(
+    //     'Verify your email before signing in. Check your email',
+    //   );
+    // }
 
+    // Check if user is active
+    if (!user.is_active) {
+      throw new ForbiddenException('Account is deactivated');
+    }
     // Generate tokens
     const tokens = await this.getTokens(user.id, user.email, user.role);
-
-    // Save refresh token
-    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    await this.updateRefreshToken(user.id, tokens.refreshToken); // Save refresh token
 
     // Remove password from response
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: userPassword, ...userResponse } = user;
-
     return {
       user: userResponse,
-      tokens,
+      tokens: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+      },
       message: 'User signed in successfully',
     };
   }
@@ -249,9 +273,12 @@ export class AuthService {
   // Reset password
   async resetPassword(token: string, newPassword: string) {
     try {
-      const payload: any = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.getOrThrow<string>('JWT_RESET_SECRET'),
-      });
+      const payload = await this.jwtService.verifyAsync<PasswordResetPayload>(
+        token,
+        {
+          secret: this.configService.getOrThrow<string>('JWT_RESET_SECRET'),
+        },
+      );
 
       if (payload.type !== 'password-reset') {
         throw new UnauthorizedException('Invalid token');
@@ -275,5 +302,78 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+  }
+
+  // Verify email
+  async verifyEmail(token: string) {
+    try {
+      const payload =
+        await this.jwtService.verifyAsync<EmailVerificationPayload>(token, {
+          secret: this.configService.getOrThrow<string>(
+            'JWT_VERIFICATION_SECRET',
+          ),
+        });
+
+      if (payload.type !== 'email-verification') {
+        throw new UnauthorizedException('Invalid verification token');
+      }
+
+      const user = await this.userRepository.findOne({
+        where: { id: payload.sub, email: payload.email },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('Invalid verification token');
+      }
+
+      if (user.email_verified_at) {
+        return { message: 'Email is already verified' };
+      }
+
+      await this.userRepository.update(user.id, {
+        email_verified_at: new Date(),
+      });
+
+      return { message: 'Email verified successfully' };
+    } catch {
+      throw new UnauthorizedException('Invalid or expired verification token');
+    }
+  }
+
+  // Resend verification email
+  async resendVerificationEmail(email: string) {
+    const user = await this.userRepository.findOne({ where: { email } });
+
+    if (!user) {
+      // Don't reveal if email exists or not for security
+      return {
+        message: 'If the email exists, verification link has been sent',
+      };
+    }
+
+    if (user.email_verified_at) {
+      return { message: 'Email is already verified' };
+    }
+
+    // Generate verification token
+    const verificationToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+        type: 'email-verification',
+      },
+      {
+        secret: this.configService.getOrThrow<string>(
+          'JWT_VERIFICATION_SECRET',
+        ),
+        expiresIn: '24h',
+      },
+    );
+
+    // TODO: Send verification email with the token
+    // This would integrate with your email service
+    console.log(`Verification token for ${email}: ${verificationToken}`);
+
+    return { message: 'Verification email sent successfully' };
   }
 }
