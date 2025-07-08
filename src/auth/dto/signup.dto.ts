@@ -5,6 +5,7 @@ import {
   MinLength,
   IsNotEmpty,
   IsEnum,
+  IsOptional,
 } from 'class-validator';
 import { Role } from '../../users/entities/user.entity';
 
@@ -45,10 +46,11 @@ export class SignUpDto {
   @ApiProperty({
     example: '+1234567890',
     description: 'User phone number',
+    required: false,
   })
   @IsString({ message: 'Phone must be a string' })
-  @IsNotEmpty({ message: 'Phone is required' })
-  phone: string;
+  @IsOptional()
+  phone?: string;
 
   @ApiProperty({
     example: 'customer',
