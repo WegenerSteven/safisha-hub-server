@@ -15,9 +15,16 @@ async function bootstrap() {
       'http://localhost:3001',
       'http://localhost:5173',
     ],
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'UPDATE', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'Origin',
+      'access-control-allow-origin',
+    ],
+    credentials: true, // Allow cookies to be sent with requests
+    optionsSuccessStatus: 200, // Set status code for preflight requests
   });
 
   //validation pipe
@@ -33,7 +40,7 @@ async function bootstrap() {
   );
 
   //api versioning
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api');
 
   //global exception filter
   app.useGlobalFilters(new AllExceptionsFilter());
@@ -57,10 +64,6 @@ async function bootstrap() {
     .addTag('bookings', 'Booking management endpoints')
     .addTag('payments', 'Payment processing endpoints')
     .addTag('reviews', 'Review management endpoints')
-    // .addTag('notifications', 'Notification endpoints')
-    // .addTag('locations', 'Location management endpoints')
-    // .addTag('sms', 'SMS service endpoints')
-    // .addTag('analytics', 'Analytics endpoints')
     .addBearerAuth()
     .addServer(`http://localhost:${PORT}/`, 'Development Server')
     .addServer(`https://api.safishahub.com/`, 'Production Server')
