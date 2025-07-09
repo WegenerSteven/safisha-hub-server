@@ -11,6 +11,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -29,6 +30,16 @@ import { ServiceStatus, ServiceType, VehicleType } from './enums/service.enums';
 import { ServiceFilterDto } from './dto/service-filter.dto';
 import { AtGuard } from '../auth/guards/at.guard';
 import { Public } from '../auth/decorators/public.decorators';
+
+// Define an interface for the request object with user property
+interface RequestWithUser {
+  user: {
+    id: string;
+    email: string;
+    role?: string;
+    [key: string]: any;
+  };
+}
 
 @ApiTags('services')
 @Controller('services')
@@ -99,6 +110,7 @@ export class ServicesController {
       sort_by,
       sort_order,
     };
+
     return this.servicesService.findAll(filters);
   }
 
@@ -112,6 +124,25 @@ export class ServicesController {
   })
   findByProvider(@Param('providerId', ParseUUIDPipe) providerId: string) {
     return this.servicesService.findByProvider(providerId);
+  }
+
+  @Get('provider')
+  @UseGuards(AtGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all services for the current provider' })
+  @ApiResponse({
+    status: 200,
+    description: 'Services retrieved successfully',
+    type: [Service],
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getProviderServices(@Request() req: RequestWithUser) {
+    const services = await this.servicesService.findByProviderId(req.user.id);
+    return {
+      success: true,
+      data: services,
+      message: 'Provider services retrieved successfully',
+    };
   }
 
   @Get(':id')

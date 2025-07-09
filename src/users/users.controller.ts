@@ -13,6 +13,10 @@ import {
   Put,
   HttpStatus,
   HttpCode,
+  UseGuards,
+  Request,
+  UploadedFile,
+  Res,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -20,6 +24,8 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
 import { Role } from './entities/user.entity';
+import { Customer } from '../customers/entities/customer.entity';
+import { ServiceProvider } from '../service-provider/entities/service-provider.entity';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import {
   ApiTags,
@@ -27,17 +33,196 @@ import {
   ApiResponse,
   ApiQuery,
   ApiParam,
-  ApiBearerAuth as AuthBearerAuth,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { FindUsersDto } from './dto/find-users.dto';
 import { UserProfileResponse } from 'src/types/profile.types';
+import { AtGuard } from '../auth/guards/at.guard';
+import {
+  UpdateUserProfileDto,
+  UpdateCustomerProfileDto,
+  UpdateServiceProviderProfileDto,
+} from './dto/update-profile.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
+// import { join } from 'path';
+// import { createReadStream, existsSync } from 'fs';
+
+// Define an interface for the request object with user property
+interface RequestWithUser {
+  user: {
+    id: string;
+    email: string;
+    role: Role;
+    [key: string]: any;
+  };
+}
+
+// Define an interface for the request object with user property
+interface RequestWithUser extends Request {
+  user: {
+    id: string;
+    email: string;
+    role: Role;
+    [key: string]: any;
+  };
+}
 
 @ApiTags('Users')
 @UseInterceptors(ClassSerializerInterceptor) // Automatically excludes password field
-@AuthBearerAuth()
+@ApiBearerAuth()
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  // Get current user profile
+  @Get('profile')
+  @UseGuards(AtGuard)
+  @ApiOperation({ summary: 'Get current user profile with role-specific data' })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+  })
+  async getProfile(@Request() req: RequestWithUser): Promise<{
+    success: boolean;
+    data: {
+      user: Partial<User>;
+      profile: Customer | ServiceProvider | null;
+      profileType: Role;
+    };
+    message: string;
+  }> {
+    const profile = await this.usersService.getUserProfile(req.user.id);
+    return {
+      success: true,
+      data: profile,
+      message: 'Profile retrieved successfully',
+    };
+  }
+
+  // Update user basic profile
+  @Put('profile')
+  @UseGuards(AtGuard)
+  @ApiOperation({ summary: 'Update user basic profile information' })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile updated successfully',
+  })
+  async updateProfile(
+    @Request() req: RequestWithUser,
+    @Body() updateData: UpdateUserProfileDto,
+  ) {
+    const updatedUser = await this.usersService.updateUserProfile(
+      req.user.id,
+      updateData,
+    );
+    return {
+      success: true,
+      data: updatedUser,
+      message: 'Profile updated successfully',
+    };
+  }
+
+  // Update customer profile
+  @Put('profile/customer')
+  @UseGuards(AtGuard)
+  @ApiOperation({ summary: 'Update customer-specific profile information' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer profile updated successfully',
+  })
+  async updateCustomerProfile(
+    @Request() req: RequestWithUser,
+    @Body() updateData: UpdateCustomerProfileDto,
+  ) {
+    const updatedCustomer = await this.usersService.updateCustomerProfile(
+      req.user.id,
+      updateData,
+    );
+    return {
+      success: true,
+      data: updatedCustomer,
+      message: 'Customer profile updated successfully',
+    };
+  }
+
+  // Update service provider profile
+  @Put('profile/service-provider')
+  @UseGuards(AtGuard)
+  @ApiOperation({ summary: 'Update service provider profile information' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service provider profile updated successfully',
+  })
+  async updateServiceProviderProfile(
+    @Request() req: RequestWithUser,
+    @Body() updateData: UpdateServiceProviderProfileDto,
+  ) {
+    const updatedProvider =
+      await this.usersService.updateServiceProviderProfile(
+        req.user.id,
+        updateData,
+      );
+    return {
+      success: true,
+      data: updatedProvider,
+      message: 'Service provider profile updated successfully',
+    };
+  }
+
+  // Get dashboard data
+  @Get('dashboard')
+  @UseGuards(AtGuard)
+  @ApiOperation({ summary: 'Get user dashboard data' })
+  @ApiResponse({
+    status: 200,
+    description: 'Dashboard data retrieved successfully',
+  })
+  async getDashboard(@Request() req: RequestWithUser): Promise<{
+    success: boolean;
+    data: {
+      user: {
+        id: string;
+        name: string;
+        email: string;
+        role: Role;
+      };
+      stats?: {
+        totalBookings?: number;
+        totalSpent?: number;
+        loyaltyTier?: string;
+        loyaltyPoints?: number;
+        totalServices?: number;
+        rating?: number;
+        isVerified?: boolean;
+        businessName?: string;
+      };
+    };
+    message: string;
+  }> {
+    const dashboardData = await this.usersService.getDashboardData(req.user.id);
+    return {
+      success: true,
+      data: dashboardData,
+      message: 'Dashboard data retrieved successfully',
+    };
+  }
+
+  // Verify email
+  @Post('verify-email')
+  @UseGuards(AtGuard)
+  @ApiOperation({ summary: 'Verify user email' })
+  @ApiResponse({ status: 200, description: 'Email verified successfully' })
+  async verifyEmail(@Request() req: RequestWithUser) {
+    const user = await this.usersService.verifyEmail(req.user.id);
+    return {
+      success: true,
+      data: user,
+      message: 'Email verified successfully',
+    };
+  }
 
   @Post()
   async create(@Body() createUserDto: CreateUserDto) {
@@ -152,7 +337,7 @@ export class UsersController {
     status: 404,
     description: 'User not found',
   })
-  async getProfile(
+  async getUserById(
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<UserProfileResponse> {
     return await this.usersService.getProfile(id);
@@ -304,23 +489,55 @@ export class UsersController {
     return await this.usersService.getProfile(id);
   }
 
-  // // Update the updateProfile method in the controller
-  // @Patch(':id/profile')
-  // @HttpCode(HttpStatus.OK)
-  // @UseGuards(AccessTokenGuard)
-  // @ApiOperation({ summary: 'Update user profile' })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'User profile updated successfully',
-  // })
-  // async updateProfile(
-  //   @Param('id', ParseUUIDPipe) id: string,
-  //   @Body() updateData: {
-  //     user?: UpdateUserDto;
-  //     customer?: UpdateCustomerDto;
-  //     provider?: UpdateServiceProviderDto;
-  //   },
-  // ): Promise<UserProfileResponse> {
-  //   return await this.usersService.updateProfile(id, updateData);
-  // }
+  // Upload user avatar
+  @Post('profile/avatar')
+  @UseGuards(AtGuard)
+  @UseInterceptors(FileInterceptor('avatar'))
+  @ApiOperation({ summary: 'Upload user avatar' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        avatar: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Avatar uploaded successfully',
+  })
+  async uploadAvatar(
+    @Request() req: RequestWithUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const avatar = await this.usersService.uploadAvatar(req.user.id, file);
+    return {
+      success: true,
+      data: { avatar },
+      message: 'Avatar uploaded successfully',
+    };
+  }
+
+  // Get user avatar
+  @Get('profile/avatar/:filename')
+  @ApiOperation({ summary: 'Get user avatar' })
+  @ApiResponse({
+    status: 200,
+    description: 'Avatar retrieved successfully',
+  })
+  getAvatar(@Param('filename') filename: string, @Res() res: Response) {
+    const file = this.usersService.getAvatar(filename);
+    if (file.exists && file.stream) {
+      return file.stream.pipe(res);
+    } else {
+      return res.status(404).json({
+        success: false,
+        message: 'Avatar not found',
+      });
+    }
+  }
 }
