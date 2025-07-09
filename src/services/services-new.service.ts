@@ -248,17 +248,11 @@ export class ServicesService {
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 
-    const [services, total] = await queryBuilder.getManyAndCount();
+    // Use only the services array since we don't need the count
+    const [services] = await queryBuilder.getManyAndCount();
 
-    return {
-      services,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-      },
-    };
+    // Return just the services array to match the client's expectation
+    return services;
   }
 
   async findOne(id: string): Promise<Service> {
@@ -276,6 +270,20 @@ export class ServicesService {
 
   async findByProvider(providerId: string, filters: ServiceFilterDto = {}) {
     return this.findAll({ ...filters, provider_id: providerId });
+  }
+
+  async findByProviderId(userId: string): Promise<Service[]> {
+    // First get the provider ID from user ID
+    const services = await this.serviceRepository
+      .createQueryBuilder('service')
+      .innerJoin('service.provider', 'provider')
+      .innerJoin('provider.user', 'user')
+      .where('user.id = :userId', { userId })
+      .leftJoinAndSelect('service.category', 'category')
+      .leftJoinAndSelect('service.pricings', 'pricing')
+      .getMany();
+
+    return services;
   }
 
   async update(
@@ -339,8 +347,8 @@ export class ServicesService {
   async createPricing(
     createPricingDto: CreateServicePricingDto,
   ): Promise<ServicePricing> {
-    // Verify service exists
-    const service = await this.findOne(createPricingDto.service_id);
+    // Verify service exists - this will throw if service doesn't exist
+    await this.findOne(createPricingDto.service_id);
 
     // Check if pricing already exists for this combination
     const existingPricing = await this.pricingRepository.findOne({

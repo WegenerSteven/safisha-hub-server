@@ -43,17 +43,35 @@ export class CustomersService {
     return customer;
   }
 
-  async findByUserId(userId: string): Promise<Customer> {
+  async findByUserId(userId: string): Promise<Customer | null> {
     const customer = await this.customerRepository.findOne({
       where: { user_id: userId },
       relations: ['user'],
     });
 
+    return customer;
+  }
+
+  async updateByUserId(
+    userId: string,
+    updateCustomerDto: UpdateCustomerDto,
+  ): Promise<Customer> {
+    let customer = await this.customerRepository.findOne({
+      where: { user_id: userId },
+    });
+
     if (!customer) {
-      throw new NotFoundException(`Customer for user ID ${userId} not found`);
+      // Create customer profile if doesn't exist
+      customer = this.customerRepository.create({
+        user_id: userId,
+        ...updateCustomerDto,
+      });
+    } else {
+      // Update existing customer
+      customer = this.customerRepository.merge(customer, updateCustomerDto);
     }
 
-    return customer;
+    return await this.customerRepository.save(customer);
   }
 
   async update(

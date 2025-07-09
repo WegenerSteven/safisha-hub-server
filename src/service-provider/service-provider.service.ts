@@ -43,19 +43,38 @@ export class ServiceProviderService {
     return serviceProvider;
   }
 
-  async findByUserId(userId: string): Promise<ServiceProvider> {
+  async findByUserId(userId: string): Promise<ServiceProvider | null> {
     const serviceProvider = await this.serviceProviderRepository.findOne({
       where: { user_id: userId },
       relations: ['user', 'services'],
     });
 
+    return serviceProvider;
+  }
+
+  async updateByUserId(
+    userId: string,
+    updateServiceProviderDto: UpdateServiceProviderDto,
+  ): Promise<ServiceProvider> {
+    let serviceProvider = await this.serviceProviderRepository.findOne({
+      where: { user_id: userId },
+    });
+
     if (!serviceProvider) {
-      throw new NotFoundException(
-        `Service Provider for user ID ${userId} not found`,
+      // Create service provider profile if doesn't exist
+      serviceProvider = this.serviceProviderRepository.create({
+        user_id: userId,
+        ...updateServiceProviderDto,
+      });
+    } else {
+      // Update existing service provider
+      serviceProvider = this.serviceProviderRepository.merge(
+        serviceProvider,
+        updateServiceProviderDto,
       );
     }
 
-    return serviceProvider;
+    return await this.serviceProviderRepository.save(serviceProvider);
   }
 
   async update(

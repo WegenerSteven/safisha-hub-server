@@ -1,4 +1,9 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { UserNotFoundException } from './exceptions/user-not-found.exception';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -8,15 +13,18 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Role, User } from './entities/user.entity';
 import { Customer } from '../customers/entities/customer.entity';
+import { ServiceProvider } from '../service-provider/entities/service-provider.entity';
 import { CustomersService } from '../customers/customers.service';
 import { ServiceProviderService } from '../service-provider/service-provider.service';
+import { FileUploadService } from '../file-upload/file-upload.service';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
+// import * as path from 'path';
 import {
   UserProfileResponse,
   UserWithProfile,
   UserRegistrationResponse,
 } from 'src/types/profile.types';
-import { ServiceProvider } from 'src/service-provider/entities/service-provider.entity';
 import { UpdateCustomerDto } from 'src/customers/dto/update-customer.dto';
 @Injectable()
 export class UsersService {
@@ -25,6 +33,7 @@ export class UsersService {
     private customersService: CustomersService,
     private serviceProviderService: ServiceProviderService,
     private dataSource: DataSource,
+    private fileUploadService: FileUploadService, // Inject FileUploadService
   ) {}
 
   // //hash password before saving to db
@@ -390,12 +399,14 @@ export class UsersService {
       // Commit transaction
       await queryRunner.commitTransaction();
 
-      // Remove password from response
+      // Extract everything except password from savedUser
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...userResponse } = savedUser;
 
+      // Make sure we return the correct type structure
       return {
-        user: userResponse,
-        profile,
+        user: { ...userResponse, role: registerUserDto.role },
+        profile: profile as Customer | ServiceProvider,
       } as UserRegistrationResponse;
     } catch (error) {
       // Rollback transaction on error
@@ -430,15 +441,244 @@ export class UsersService {
     // Update role-specific profile
     if (user.role === Role.CUSTOMER && updateData.customer) {
       const customer = await this.customersService.findByUserId(userId);
-      await this.customersService.update(customer.id, updateData.customer); // Fixed: Use proper DTO
+      if (customer) {
+        await this.customersService.update(customer.id, updateData.customer);
+      }
     } else if (user.role === Role.SERVICE_PROVIDER && updateData.provider) {
       const provider = await this.serviceProviderService.findByUserId(userId);
-      await this.serviceProviderService.update(
-        provider.id,
-        updateData.provider,
-      ); // Fixed: Use proper DTO
+      if (provider) {
+        await this.serviceProviderService.update(
+          provider.id,
+          updateData.provider,
+        );
+      }
     }
 
     return this.getProfile(userId);
+  }
+
+  // Get user profile with role-specific data
+  async getUserProfile(userId: string): Promise<{
+    user: Partial<User>;
+    profile: Customer | ServiceProvider | null;
+    profileType: Role;
+  }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: [
+        'id',
+        'email',
+        'first_name',
+        'last_name',
+        'phone',
+        'role',
+        'is_active',
+        'email_verified_at',
+        'created_at',
+        'updated_at',
+      ],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    let profileData: Customer | ServiceProvider | null = null;
+
+    // Get role-specific profile data
+    if (user.role === Role.CUSTOMER) {
+      profileData = await this.customersService.findByUserId(userId);
+    } else if (user.role === Role.SERVICE_PROVIDER) {
+      profileData = await this.serviceProviderService.findByUserId(userId);
+    }
+
+    return {
+      user,
+      profile: profileData,
+      profileType: user.role,
+    };
+  }
+
+  // Update user profile (basic user info)
+  async updateUserProfile(
+    userId: string,
+    updateData: UpdateUserDto,
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Update basic user fields
+    const updatedUser = this.userRepository.merge(user, updateData);
+    return await this.userRepository.save(updatedUser);
+  }
+
+  // Update customer profile
+  async updateCustomerProfile(
+    userId: string,
+    updateData: UpdateCustomerDto,
+  ): Promise<Customer> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== Role.CUSTOMER) {
+      throw new BadRequestException('User is not a customer');
+    }
+
+    return await this.customersService.updateByUserId(userId, updateData);
+  }
+
+  // Update service provider profile
+  async updateServiceProviderProfile(
+    userId: string,
+    updateData: UpdateServiceProviderDto,
+  ): Promise<ServiceProvider> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role !== Role.SERVICE_PROVIDER) {
+      throw new BadRequestException('User is not a service provider');
+    }
+
+    return await this.serviceProviderService.updateByUserId(userId, updateData);
+  }
+
+  // Verify user email
+  async verifyEmail(userId: string): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    user.email_verified_at = new Date();
+    return await this.userRepository.save(user);
+  }
+
+  // Upload profile avatar
+  async uploadAvatar(
+    userId: string,
+    file: Express.Multer.File,
+  ): Promise<string> {
+    // Check if user exists
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // If user already has an avatar, delete the old one
+    if (user.avatar) {
+      try {
+        await this.fileUploadService.deleteAvatar(user.avatar);
+      } catch (error) {
+        console.error('Failed to delete old avatar:', error);
+      }
+    }
+
+    // Save new avatar - no await needed as it returns a string directly
+    const filename = this.fileUploadService.saveAvatar(file);
+
+    // Update user record with new avatar filename
+    user.avatar = filename;
+    await this.userRepository.save(user);
+
+    return filename;
+  }
+
+  // Get user avatar
+  getAvatar(filename: string): { exists: boolean; stream?: fs.ReadStream } {
+    const filePath = this.fileUploadService.getAvatarPath(filename);
+
+    if (fs.existsSync(filePath)) {
+      return {
+        exists: true,
+        stream: fs.createReadStream(filePath),
+      };
+    } else {
+      return { exists: false };
+    }
+  }
+
+  // Get dashboard data based on user role
+  async getDashboardData(userId: string): Promise<{
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      role: Role;
+    };
+    stats?: {
+      totalBookings?: number;
+      totalSpent?: number;
+      loyaltyTier?: string;
+      loyaltyPoints?: number;
+      totalServices?: number;
+      rating?: number;
+      isVerified?: boolean;
+      businessName?: string;
+    };
+  }> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      select: ['id', 'role', 'first_name', 'last_name', 'email'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const baseData = {
+      user: {
+        id: user.id,
+        name: `${user.first_name} ${user.last_name}`,
+        email: user.email,
+        role: user.role,
+      },
+    };
+
+    if (user.role === Role.CUSTOMER) {
+      const customer = await this.customersService.findByUserId(userId);
+      return {
+        ...baseData,
+        stats: {
+          totalBookings: customer?.total_bookings || 0,
+          totalSpent: customer?.total_spent || 0,
+          loyaltyTier: customer?.loyalty_tier || 'bronze',
+          loyaltyPoints: customer?.loyalty_points || 0,
+        },
+      };
+    } else if (user.role === Role.SERVICE_PROVIDER) {
+      const provider = await this.serviceProviderService.findByUserId(userId);
+      return {
+        ...baseData,
+        stats: {
+          totalServices: provider?.total_services || 0,
+          rating: provider?.rating || 0,
+          isVerified: provider?.is_verified || false,
+          businessName: provider?.business_name || '',
+        },
+      };
+    }
+
+    return baseData;
   }
 }
