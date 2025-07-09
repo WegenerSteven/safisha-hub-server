@@ -17,6 +17,7 @@ import { EmailServiceModule } from './email/email-service.module';
 import { SmsModule } from './sms/sms.module';
 import { AuthModule } from './auth/auth.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { FileUploadModule } from './file-upload/file-upload.module';
 import { AtGuard } from './auth/guards/at.guard';
 
 @Module({
@@ -36,6 +37,7 @@ import { AtGuard } from './auth/guards/at.guard';
     SmsModule,
     AuthModule,
     AnalyticsModule,
+    FileUploadModule,
   ],
   controllers: [],
   providers: [
