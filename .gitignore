@@ -45,3 +45,6 @@ coverage/
 
 # Optional eslint cache
 .eslintcache
+
+# Uploads
+uploads/
