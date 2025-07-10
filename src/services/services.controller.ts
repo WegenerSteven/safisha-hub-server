@@ -46,6 +46,23 @@ interface RequestWithUser {
 export class ServicesController {
   constructor(private readonly servicesService: ServicesService) {}
 
+  @Get('categories')
+  @Public()
+  @ApiOperation({ summary: 'Get all service categories' })
+  @ApiResponse({
+    status: 200,
+    description: 'Categories retrieved successfully',
+    type: [ServiceCategory],
+  })
+  async getCategories(@Query('isActive') isActive?: boolean) {
+    const categories = await this.servicesService.findAllCategories(isActive);
+    return {
+      success: true,
+      data: categories,
+      message: 'Service categories retrieved successfully',
+    };
+  }
+
   @Post()
   @UseGuards(AtGuard)
   @ApiBearerAuth()
@@ -57,8 +74,24 @@ export class ServicesController {
   })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  create(@Body() createServiceDto: CreateServiceDto): Promise<Service> {
-    return this.servicesService.create(createServiceDto);
+  async create(
+    @Body() createServiceDto: CreateServiceDto,
+    @Request() req: RequestWithUser,
+  ): Promise<Service> {
+    // Get the user_id from the authenticated user
+    const userId = req.user.id;
+    console.log('Creating service for user:', userId);
+
+    // We need to resolve the service provider ID from the user ID
+    // For now, let's use the userId as provider_id and let the service handle the lookup
+    const serviceData = {
+      ...createServiceDto,
+      provider_id: userId, // This will be resolved in the service
+    };
+
+    console.log('Service creation data:', serviceData);
+
+    return this.servicesService.createForUser(userId, createServiceDto);
   }
 
   @Get()

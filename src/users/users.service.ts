@@ -635,11 +635,14 @@ export class UsersService {
       rating?: number;
       isVerified?: boolean;
       businessName?: string;
+      monthlyRevenue?: number;
     };
+    recentBookings?: any[];
+    upcomingBookings?: any[];
+    popularServices?: any[];
   }> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
-      select: ['id', 'role', 'first_name', 'last_name', 'email'],
     });
 
     if (!user) {
@@ -655,8 +658,49 @@ export class UsersService {
       },
     };
 
+    // Define current date and upcoming date range
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Common query for recent bookings
+    const getRecentBookingsQuery = (userIdField: string) =>
+      this.dataSource
+        .createQueryBuilder()
+        .select('booking')
+        .from('bookings', 'booking')
+        .leftJoinAndSelect('booking.service', 'service')
+        .leftJoinAndSelect('booking.user', 'customer')
+        .leftJoinAndSelect('service.provider', 'provider')
+        .where(`booking.${userIdField} = :userId`, { userId })
+        .orderBy('booking.created_at', 'DESC')
+        .limit(5);
+
+    // Common query for upcoming bookings
+    const getUpcomingBookingsQuery = (userIdField: string) =>
+      this.dataSource
+        .createQueryBuilder()
+        .select('booking')
+        .from('bookings', 'booking')
+        .leftJoinAndSelect('booking.service', 'service')
+        .leftJoinAndSelect('booking.user', 'customer')
+        .leftJoinAndSelect('service.provider', 'provider')
+        .where(`booking.${userIdField} = :userId`, { userId })
+        .andWhere('booking.service_date >= :today', { today })
+        .andWhere(`booking.status NOT IN ('cancelled', 'completed')`)
+        .orderBy('booking.service_date', 'ASC')
+        .addOrderBy('booking.service_time', 'ASC')
+        .limit(5);
+
     if (user.role === Role.CUSTOMER) {
       const customer = await this.customersService.findByUserId(userId);
+
+      // Get recent bookings for the customer
+      const recentBookings = await getRecentBookingsQuery('user_id').getMany();
+
+      // Get upcoming bookings for the customer
+      const upcomingBookings =
+        await getUpcomingBookingsQuery('user_id').getMany();
+
       return {
         ...baseData,
         stats: {
@@ -665,9 +709,84 @@ export class UsersService {
           loyaltyTier: customer?.loyalty_tier || 'bronze',
           loyaltyPoints: customer?.loyalty_points || 0,
         },
+        recentBookings,
+        upcomingBookings,
       };
     } else if (user.role === Role.SERVICE_PROVIDER) {
       const provider = await this.serviceProviderService.findByUserId(userId);
+
+      // Get recent bookings for services provided by this provider
+      const recentBookings = await this.dataSource
+        .createQueryBuilder()
+        .select('booking')
+        .from('bookings', 'booking')
+        .leftJoinAndSelect('booking.service', 'service')
+        .leftJoinAndSelect('booking.user', 'customer')
+        .where('service.provider_id = :providerId', {
+          providerId: provider?.id,
+        })
+        .orderBy('booking.created_at', 'DESC')
+        .limit(5)
+        .getMany();
+
+      // Get upcoming bookings for services provided by this provider
+      const upcomingBookings = await this.dataSource
+        .createQueryBuilder()
+        .select('booking')
+        .from('bookings', 'booking')
+        .leftJoinAndSelect('booking.service', 'service')
+        .leftJoinAndSelect('booking.user', 'customer')
+        .where('service.provider_id = :providerId', {
+          providerId: provider?.id,
+        })
+        .andWhere('booking.service_date >= :today', { today })
+        .andWhere(`booking.status NOT IN ('cancelled', 'completed')`)
+        .orderBy('booking.service_date', 'ASC')
+        .addOrderBy('booking.service_time', 'ASC')
+        .limit(5)
+        .getMany();
+
+      // Get popular services by booking count
+      const popularServices = await this.dataSource
+        .createQueryBuilder()
+        .select('service')
+        .from('services', 'service')
+        .where('service.provider_id = :providerId', {
+          providerId: provider?.id,
+        })
+        .orderBy('service.booking_count', 'DESC')
+        .limit(5)
+        .getMany();
+
+      // Calculate monthly revenue from bookings
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthlyRevenueResult = await this.dataSource
+        .createQueryBuilder()
+        .select('SUM(booking.total_amount)', 'revenue')
+        .from('bookings', 'booking')
+        .leftJoin('booking.service', 'service')
+        .where('service.provider_id = :providerId', {
+          providerId: provider?.id,
+        })
+        .andWhere('booking.created_at >= :startOfMonth', { startOfMonth })
+        .andWhere(`booking.status NOT IN ('cancelled')`)
+        .getRawOne();
+
+      const monthlyRevenue = parseFloat(monthlyRevenueResult?.revenue || '0');
+
+      // Count total bookings
+      const totalBookingsResult = await this.dataSource
+        .createQueryBuilder()
+        .select('COUNT(booking.id)', 'count')
+        .from('bookings', 'booking')
+        .leftJoin('booking.service', 'service')
+        .where('service.provider_id = :providerId', {
+          providerId: provider?.id,
+        })
+        .getRawOne();
+
+      const totalBookings = parseInt(totalBookingsResult?.count || '0');
+
       return {
         ...baseData,
         stats: {
@@ -675,7 +794,16 @@ export class UsersService {
           rating: provider?.rating || 0,
           isVerified: provider?.is_verified || false,
           businessName: provider?.business_name || '',
+          totalBookings,
+          monthlyRevenue,
         },
+        recentBookings,
+        upcomingBookings,
+        popularServices: popularServices.map((service) => ({
+          id: service.id,
+          name: service.name,
+          bookingCount: service.booking_count,
+        })),
       };
     }
 

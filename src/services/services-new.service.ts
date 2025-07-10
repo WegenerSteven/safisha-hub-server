@@ -9,6 +9,7 @@ import { Repository, FindOptionsWhere, SelectQueryBuilder } from 'typeorm';
 import { Service } from './entities/service.entity';
 import { ServiceCategory } from './entities/service-category.entity';
 import { ServicePricing } from './entities/service-pricing.entity';
+import { ServiceProvider } from '../service-provider/entities/service-provider.entity';
 import { ServiceStatus } from './enums/service.enums';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
@@ -26,6 +27,8 @@ export class ServicesService {
     private readonly categoryRepository: Repository<ServiceCategory>,
     @InjectRepository(ServicePricing)
     private readonly pricingRepository: Repository<ServicePricing>,
+    @InjectRepository(ServiceProvider)
+    private readonly serviceProviderRepository: Repository<ServiceProvider>,
   ) {}
 
   // Service Category Methods
@@ -114,7 +117,37 @@ export class ServicesService {
   }
 
   // Service Methods
+  async createForUser(
+    userId: string,
+    createServiceDto: CreateServiceDto,
+  ): Promise<Service> {
+    console.log('Creating service for user:', userId);
+
+    // First, find the service provider for this user
+    const serviceProvider = await this.serviceProviderRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!serviceProvider) {
+      throw new NotFoundException(
+        'Service provider profile not found. Please complete your provider profile first.',
+      );
+    }
+
+    console.log('Service provider found:', serviceProvider.business_name);
+
+    // Now create the service with the correct provider_id
+    const serviceData = {
+      ...createServiceDto,
+      provider_id: serviceProvider.id,
+    };
+
+    return this.create(serviceData);
+  }
+
   async create(createServiceDto: CreateServiceDto): Promise<Service> {
+    console.log('Creating service with DTO:', createServiceDto);
+
     // Verify category exists
     const category = await this.categoryRepository.findOne({
       where: { id: createServiceDto.category_id, is_active: true },
@@ -123,6 +156,19 @@ export class ServicesService {
     if (!category) {
       throw new NotFoundException('Service category not found or inactive');
     }
+
+    console.log('Category found:', category.name);
+
+    // Verify service provider exists - the provider_id should reference a service provider
+    const serviceProvider = await this.serviceProviderRepository.findOne({
+      where: { id: createServiceDto.provider_id },
+    });
+
+    if (!serviceProvider) {
+      throw new NotFoundException('Service provider not found');
+    }
+
+    console.log('Service provider found:', serviceProvider.business_name);
 
     // Validate pricing
     if (
@@ -134,8 +180,18 @@ export class ServicesService {
       );
     }
 
+    // Create the service
     const service = this.serviceRepository.create(createServiceDto);
-    return await this.serviceRepository.save(service);
+    console.log('Service entity created, saving to database...');
+
+    try {
+      const savedService = await this.serviceRepository.save(service);
+      console.log('Service saved successfully:', savedService.id);
+      return savedService;
+    } catch (error) {
+      console.error('Error saving service:', error);
+      throw new BadRequestException('Failed to create service: ' + error);
+    }
   }
 
   async findAll(filters: ServiceFilterDto = {}) {
@@ -273,17 +329,35 @@ export class ServicesService {
   }
 
   async findByProviderId(userId: string): Promise<Service[]> {
-    // First get the provider ID from user ID
-    const services = await this.serviceRepository
-      .createQueryBuilder('service')
-      .innerJoin('service.provider', 'provider')
-      .innerJoin('provider.user', 'user')
-      .where('user.id = :userId', { userId })
-      .leftJoinAndSelect('service.category', 'category')
-      .leftJoinAndSelect('service.pricings', 'pricing')
-      .getMany();
+    try {
+      // First find the service provider for this user
+      const serviceProvider = await this.serviceProviderRepository.findOne({
+        where: { user_id: userId },
+      });
 
-    return services;
+      if (!serviceProvider) {
+        console.log('No service provider found for user:', userId);
+        return [];
+      }
+
+      // Now get services for this provider
+      const services = await this.serviceRepository.find({
+        where: { provider_id: serviceProvider.id },
+        relations: ['category', 'provider', 'pricings'],
+        order: { created_at: 'DESC' },
+      });
+
+      console.log(
+        'Found',
+        services.length,
+        'services for provider:',
+        serviceProvider.business_name,
+      );
+      return services;
+    } catch (error) {
+      console.error('Error finding services by provider ID:', error);
+      return [];
+    }
   }
 
   async update(
