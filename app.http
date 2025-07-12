@@ -1,6 +1,6 @@
 ### Variables
-@baseUrl = http://localhost:3001/api/v1
-@authToken = your-jwt-token-here
+@baseUrl = http://localhost:3001/api
+@authToken =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0YTM2ZDk1OC1hYmJjLTQ5MjItODg5NC1mYzc1NzQ0ODY0MzAiLCJlbWFpbCI6InN0ZXZlbkBwcm92aWRlci5jb20iLCJyb2xlIjoic2VydmljZV9wcm92aWRlciIsImlhdCI6MTc1MjIzNTM1MCwiZXhwIjoxNzUyMjM2MjUwfQ._iRWudWkfAmbf1mhQDUBZN8dXGe0Ibr7DkTi2Gc3Flg
 @userId = fbe299b1-0252-4912-bfaa-a39db9f73e7a
 @serviceId = service-uuid-here
 @bookingId = booking-uuid-here
@@ -32,8 +32,8 @@ POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "john.doe@example.com",
-  "password": "SecurePass123"
+  "email": "phantom@example.com",
+  "password": "Peter@001"
 }
 
 ### Refresh Token
@@ -187,6 +187,17 @@ Authorization: Bearer {{authToken}}
   "business_name": "Updated CleanCar Services",
   "description": "Premium car wash services",
   "address": "456 Updated Street, Nairobi"
+}
+### Update Service Provider Profile (Fixed)
+PUT {{baseUrl}}/service-provider/profile
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "business_name": "Updated CleanCar Services",
+  "description": "Premium car wash services with eco-friendly products",
+  "address": "456 Updated Street, Nairobi",
+  "phone": "+254712345682"
 }
 
 ### Delete Service Provider
@@ -595,54 +606,56 @@ GET {{baseUrl}}/utils/payment-methods
 ### Get User Roles
 GET {{baseUrl}}/utils/user-roles
 
-### New Role-Based User Registration (Customer)
+###############################################################################
+# ROLE-BASED REGISTRATION ENDPOINTS
+###############################################################################
+
+### Register Customer with Profile Data
 POST {{baseUrl}}/users/register
 Content-Type: application/json
 
 {
   "first_name": "Jane",
-  "last_name": "Smith",
-  "email": "jane.smith@example.com",
+  "last_name": "Doe",
+  "email": "jane.customer@example.com",
   "password": "SecurePass123",
-  "phone": "+254712345679",
+  "phone": "+254712345678",
   "role": "customer",
   "customer_data": {
-    "address": "123 Main Street, Nairobi",
-    "date_of_birth": "1990-05-15",
+    "address": "123 Main St, Nairobi",
     "preferred_contact_method": "email",
     "email_notifications": true,
     "sms_notifications": false
   }
 }
 
-### New Role-Based User Registration (Service Provider)
+### Register Service Provider with Business Data
 POST {{baseUrl}}/users/register
 Content-Type: application/json
 
 {
-  "first_name": "Michael",
-  "last_name": "Johnson",
-  "email": "michael.johnson@example.com",
+  "first_name": "John",
+  "last_name": "Smith",
+  "email": "john.provider@example.com",
   "password": "SecurePass123",
-  "phone": "+254712345680",
-  "role": "provider",
+  "phone": "+254712345679",
+  "role": "service_provider",
   "provider_data": {
-    "business_name": "Mike's Auto Wash",
-    "description": "Professional car wash service with 10 years experience",
+    "business_name": "John's Car Wash",
+    "description": "Professional car wash services with 10 years experience",
     "address": "456 Business Avenue, Nairobi",
     "phone": "+254712345680"
   }
 }
 
-### New Role-Based User Registration (Customer - Minimal Data)
+### Register Customer with Minimal Data
 POST {{baseUrl}}/users/register
 Content-Type: application/json
 
 {
   "first_name": "Sarah",
   "last_name": "Wilson",
-  "email": "sarah.wilson@example.com",
+  "email": "sarah.minimal@example.com",
   "password": "SecurePass123",
-  "phone": "+254712345681",
   "role": "customer"
 }
