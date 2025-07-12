@@ -32,7 +32,12 @@ export class ServiceProvider {
   @Column({ type: 'text' })
   address: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 20,
+    nullable: true,
+    comment: 'Business phone number',
+  })
   phone: string;
 
   @Column({ type: 'decimal', precision: 3, scale: 2, default: 0.0 })
