@@ -1,6 +1,6 @@
 ### Variables
 @baseUrl = http://localhost:3001/api
-@authToken =eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI0YTM2ZDk1OC1hYmJjLTQ5MjItODg5NC1mYzc1NzQ0ODY0MzAiLCJlbWFpbCI6InN0ZXZlbkBwcm92aWRlci5jb20iLCJyb2xlIjoic2VydmljZV9wcm92aWRlciIsImlhdCI6MTc1MjIzNTM1MCwiZXhwIjoxNzUyMjM2MjUwfQ._iRWudWkfAmbf1mhQDUBZN8dXGe0Ibr7DkTi2Gc3Flg
+@authToken =your-auth-token-here
 @userId = fbe299b1-0252-4912-bfaa-a39db9f73e7a
 @serviceId = service-uuid-here
 @bookingId = booking-uuid-here
