@@ -4,25 +4,59 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { GetCurrentUser } from 'src/auth/decorators/get-current-user.decorator';
+import { User } from 'src/users/entities/user.entity';
+import { AtGuard } from 'src/auth/guards/at.guard';
 
 @ApiTags('customers')
 @ApiBearerAuth()
+@UseGuards(AtGuard)
 @Controller('customers')
 export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Post()
-  create(@Body() createCustomerDto: CreateCustomerDto) {
-    // This would typically be called internally during user registration
-    // The userId would come from authentication context
-    throw new Error('Use user registration endpoint instead');
+  create(
+    @Body() createCustomerDto: CreateCustomerDto,
+    @GetCurrentUser() currentUser: User,
+  ) {
+    return this.customersService.create(currentUser.id, createCustomerDto);
+  }
+
+  @Put('profile')
+  @ApiOperation({ summary: 'Update current user customer profile' })
+  @ApiResponse({
+    status: 200,
+    description: 'Customer profile updated successfully',
+  })
+  async updateProfile(
+    @Body() updateCustomerDto: UpdateCustomerDto,
+    @GetCurrentUser() currentUser: User,
+  ) {
+    return await this.customersService.updateByUserId(
+      currentUser.id,
+      updateCustomerDto,
+    );
+  }
+
+  @Get('profile')
+  @ApiOperation({ summary: 'Get current user customer profile' })
+  async getProfile(@GetCurrentUser() currentUser: User) {
+    return await this.customersService.findByUserId(currentUser.id);
   }
 
   @Get()
