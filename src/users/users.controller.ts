@@ -19,6 +19,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { ProfileManagementService } from './profile-management.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -75,26 +76,24 @@ interface RequestWithUser extends Request {
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly profileManagementService: ProfileManagementService,
+  ) {}
 
-  // Get current user profile
+  // Get current user profile (unified)
   @Get('profile')
   @UseGuards(AtGuard)
-  @ApiOperation({ summary: 'Get current user profile with role-specific data' })
+  @ApiOperation({ summary: 'Get user profile with role-specific data' })
   @ApiResponse({
     status: 200,
-    description: 'User profile retrieved successfully',
+    description: 'Profile retrieved successfully',
+    type: User,
   })
-  async getProfile(@Request() req: RequestWithUser): Promise<{
-    success: boolean;
-    data: {
-      user: Partial<User>;
-      profile: Customer | ServiceProvider | null;
-      profileType: Role;
-    };
-    message: string;
-  }> {
-    const profile = await this.usersService.getUserProfile(req.user.id);
+  async getProfile(@Request() req: RequestWithUser) {
+    const profile = await this.profileManagementService.getUnifiedProfile(
+      req.user.id,
+    );
     return {
       success: true,
       data: profile,

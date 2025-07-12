@@ -38,7 +38,7 @@ export class User {
   @Column()
   last_name: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, comment: 'Personal phone number' })
   phone?: string;
 
   @Column({ nullable: true })

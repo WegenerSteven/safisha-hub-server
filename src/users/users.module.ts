@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { ProfileManagementService } from './profile-management.service';
 import { UsersController } from './users.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
@@ -17,7 +18,7 @@ import { FileUploadModule } from '../file-upload/file-upload.module';
     FileUploadModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService],
-  exports: [UsersService],
+  providers: [UsersService, ProfileManagementService],
+  exports: [UsersService, ProfileManagementService],
 })
 export class UsersModule {}
