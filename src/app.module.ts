@@ -5,9 +5,7 @@ import { LoggerMiddleware } from './logger.middleware';
 import { DatabaseModule } from './database/database.module';
 import { ConfigModule } from '@nestjs/config';
 import { UsersModule } from './users/users.module';
-import { CustomersModule } from './customers/customers.module';
 import { ServicesModule } from './services/services.module';
-import { ServiceProviderModule } from './service-provider/service-provider.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { PaymentsModule } from './payment/payments.module';
 import { LocationsModule } from './location/locations.module';
@@ -18,6 +16,7 @@ import { SmsModule } from './sms/sms.module';
 import { AuthModule } from './auth/auth.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { FileUploadModule } from './file-upload/file-upload.module';
+import { BusinessesModule } from './businesses/businesses.module';
 import { AtGuard } from './auth/guards/at.guard';
 
 @Module({
@@ -25,9 +24,7 @@ import { AtGuard } from './auth/guards/at.guard';
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env'] }),
     DatabaseModule,
     UsersModule,
-    CustomersModule,
     ServicesModule,
-    ServiceProviderModule,
     BookingsModule,
     PaymentsModule,
     LocationsModule,
@@ -38,6 +35,7 @@ import { AtGuard } from './auth/guards/at.guard';
     AuthModule,
     AnalyticsModule,
     FileUploadModule,
+    BusinessesModule,
   ],
   controllers: [],
   providers: [
