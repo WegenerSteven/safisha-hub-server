@@ -9,6 +9,7 @@ import { PassportModule } from '@nestjs/passport';
 import { User } from '../users/entities/user.entity';
 import { AtStrategy, RtStrategy } from './strategies';
 import { EmailServiceModule } from 'src/email/email-service.module';
+import { BusinessesModule } from '../businesses/businesses.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { EmailServiceModule } from 'src/email/email-service.module';
     }),
     EmailServiceModule,
     PassportModule,
+    BusinessesModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AtStrategy, RtStrategy],

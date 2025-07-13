@@ -13,11 +13,14 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { SignInDto } from './dto/signin.dto';
 import { SignUpDto } from './dto/signup.dto';
+import { RegisterCustomerDto } from '../users/dto/register-customer.dto';
+import { RegisterServiceProviderDto } from '../users/dto/register-service-provider.dto';
 import {
   PasswordResetPayload,
   EmailVerificationPayload,
 } from './types/jwt.types';
-import { EmailService } from '../email/email-service.service'; // Assuming you have an EmailService for sending emails
+import { EmailService } from '../email/email-service.service';
+import { BusinessRegistrationService } from '../businesses/business-registration.service';
 
 @Injectable()
 export class AuthService {
@@ -25,8 +28,9 @@ export class AuthService {
     @InjectRepository(User) private userRepository: Repository<User>,
     private jwtService: JwtService,
     private configService: ConfigService,
-    private dataSource: DataSource, // Assuming you have a DataSource for transactions
-    private emailService: EmailService, // Assuming you have an EmailService for sending emails
+    private dataSource: DataSource,
+    private emailService: EmailService,
+    private businessRegistrationService: BusinessRegistrationService,
   ) {}
 
   // Helper method to generate access and refresh tokens
@@ -121,6 +125,7 @@ export class AuthService {
       await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
 
       // Remove password from response
+
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, hashedRefreshToken, ...userResponse } = savedUser;
 
@@ -375,5 +380,136 @@ export class AuthService {
     console.log(`Verification token for ${email}: ${verificationToken}`);
 
     return { message: 'Verification email sent successfully' };
+  }
+
+  // Register customer
+  async registerCustomer(registerDto: RegisterCustomerDto) {
+    const existingUser = await this.userRepository.findOne({
+      where: { email: registerDto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException(
+        `User with email '${registerDto.email}' already exists`,
+      );
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const hashedPassword = await this.hashData(registerDto.password);
+
+      const userData = {
+        ...registerDto,
+        password: hashedPassword,
+        role: Role.CUSTOMER,
+        is_active: true,
+      };
+
+      const user = queryRunner.manager.create(User, userData);
+      const savedUser = await queryRunner.manager.save(user);
+
+      await queryRunner.commitTransaction();
+
+      // Generate tokens
+      const tokens = await this.getTokens(
+        savedUser.id,
+        savedUser.email,
+        savedUser.role,
+      );
+
+      // Update refresh token
+      await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
+
+      // Send verification email
+      await this.resendVerificationEmail(savedUser.email);
+
+      const { password, hashedRefreshToken, ...userResponse } = savedUser;
+
+      return {
+        message: 'Customer registered successfully. Please verify your email.',
+        user: userResponse,
+        ...tokens,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // Register service provider
+  async registerServiceProvider(registerDto: RegisterServiceProviderDto) {
+    const existingUser = await this.userRepository.findOne({
+      where: { email: registerDto.email },
+    });
+
+    if (existingUser) {
+      throw new ConflictException(
+        `User with email '${registerDto.email}' already exists`,
+      );
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const hashedPassword = await this.hashData(registerDto.password);
+
+      // Create a basic user with just the essential fields
+      const userData = {
+        email: registerDto.email,
+        password: hashedPassword,
+        first_name: registerDto.first_name,
+        last_name: registerDto.last_name,
+        phone: registerDto.phone,
+        role: Role.SERVICE_PROVIDER,
+        is_active: true,
+        is_verified: false, // Service providers need verification
+      };
+
+      const user = queryRunner.manager.create(User, userData);
+      const savedUser = await queryRunner.manager.save(user);
+
+      await queryRunner.commitTransaction();
+
+      // Register business for the service provider
+      await this.businessRegistrationService.registerBusinessFromServiceProvider(
+        savedUser.id,
+        registerDto,
+      );
+
+      // Generate tokens
+      const tokens = await this.getTokens(
+        savedUser.id,
+        savedUser.email,
+        savedUser.role,
+      );
+
+      // Update refresh token
+      await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
+
+      // Send verification email
+      await this.resendVerificationEmail(savedUser.email);
+
+      // Return user without sensitive fields
+      const { password, ...userResponse } = savedUser;
+
+      return {
+        message:
+          'Service provider registered successfully. Please verify your email and await business verification.',
+        user: userResponse,
+        ...tokens,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

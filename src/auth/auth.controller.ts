@@ -20,6 +20,8 @@ import { SignUpDto } from './dto/signup.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ResendVerificationDto } from './dto/resend-verification.dto';
+import { RegisterCustomerDto } from '../users/dto/register-customer.dto';
+import { RegisterServiceProviderDto } from '../users/dto/register-service-provider.dto';
 import {
   AuthSuccessResponseDto,
   ErrorResponseDto,
@@ -241,5 +243,49 @@ export class AuthController {
     return await this.authService.resendVerificationEmail(
       resendVerificationDto.email,
     );
+  }
+
+  @Public()
+  @Post('register/customer')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register a new customer',
+    description: 'Create a new customer account with email verification',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Customer has been successfully registered.',
+    type: AuthSuccessResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'User with this email already exists.',
+    type: ErrorResponseDto,
+  })
+  async registerCustomer(@Body() registerDto: RegisterCustomerDto) {
+    return await this.authService.registerCustomer(registerDto);
+  }
+
+  @Public()
+  @Post('register/service-provider')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Register a new service provider',
+    description: 'Create a new service provider account with business details',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Service provider has been successfully registered.',
+    type: AuthSuccessResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'User with this email already exists.',
+    type: ErrorResponseDto,
+  })
+  async registerServiceProvider(
+    @Body() registerDto: RegisterServiceProviderDto,
+  ) {
+    return await this.authService.registerServiceProvider(registerDto);
   }
 }
