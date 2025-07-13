@@ -1,12 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ServicesService } from './services-new.service';
+import { ServicesService } from './services.service';
 import { ServicesController } from './services.controller';
 import { Service } from './entities/service.entity';
 import { ServiceAddOn } from './entities/service-addon.entity';
 import { ServiceCategory } from './entities/service-category.entity';
 import { ServicePricing } from './entities/service-pricing.entity';
-import { ServiceProvider } from '../service-provider/entities/service-provider.entity';
+import { User } from '../users/entities/user.entity';
 
 @Module({
   imports: [
@@ -15,7 +15,7 @@ import { ServiceProvider } from '../service-provider/entities/service-provider.e
       ServiceAddOn,
       ServiceCategory,
       ServicePricing,
-      ServiceProvider,
+      User,
     ]),
   ],
   controllers: [ServicesController],

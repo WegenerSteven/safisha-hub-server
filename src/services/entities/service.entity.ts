@@ -9,7 +9,8 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { ServiceProvider } from '../../service-provider/entities/service-provider.entity';
+import { User } from '../../users/entities/user.entity';
+import { Business } from '../../businesses/entities/business.entity';
 import { Location } from '../../location/entities/location.entity';
 import { ServiceAddOn } from './service-addon.entity';
 import { Booking } from '../../bookings/entities/booking.entity';
@@ -33,11 +34,20 @@ export class Service {
   @Column({ type: 'uuid' })
   provider_id: string;
 
-  @ManyToOne(() => ServiceProvider, (provider) => provider.services, {
+  @ManyToOne(() => User, (user) => user.services, {
     onDelete: 'CASCADE',
   })
   @JoinColumn({ name: 'provider_id' })
-  provider: ServiceProvider;
+  provider: User;
+
+  @Column({ type: 'uuid', nullable: true })
+  business_id: string;
+
+  @ManyToOne(() => Business, (business) => business.services, {
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'business_id' })
+  business: Business;
 
   @Column({ type: 'uuid' })
   category_id: string;
