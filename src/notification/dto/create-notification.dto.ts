@@ -35,4 +35,7 @@ export class CreateNotificationDto {
   @IsOptional()
   @IsEnum(NotificationStatus)
   status?: NotificationStatus;
+
+  @IsOptional()
+  is_read?: boolean;
 }
