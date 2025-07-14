@@ -48,3 +48,12 @@ coverage/
 
 # Uploads
 uploads/
+
+# Test JSON files
+test-*.json
+*-test.json
+
+# Migration scripts
+*-migration.ps1
+*-migration.sql
+run-migration*.ps1
