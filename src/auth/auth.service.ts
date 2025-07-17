@@ -20,7 +20,7 @@ import {
   EmailVerificationPayload,
 } from './types/jwt.types';
 import { EmailService } from '../email/email-service.service';
-import { BusinessRegistrationService } from '../businesses/business-registration.service';
+import { BusinessesService } from '../businesses/businesses.service';
 
 @Injectable()
 export class AuthService {
@@ -30,7 +30,7 @@ export class AuthService {
     private configService: ConfigService,
     private dataSource: DataSource,
     private emailService: EmailService,
-    private businessRegistrationService: BusinessRegistrationService,
+    private businessesService: BusinessesService,
   ) {}
 
   // Helper method to generate access and refresh tokens
@@ -426,6 +426,7 @@ export class AuthService {
       // Send verification email
       await this.resendVerificationEmail(savedUser.email);
 
+      //eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, hashedRefreshToken, ...userResponse } = savedUser;
 
       return {
@@ -477,11 +478,21 @@ export class AuthService {
 
       await queryRunner.commitTransaction();
 
-      // Register business for the service provider
-      await this.businessRegistrationService.registerBusinessFromServiceProvider(
-        savedUser.id,
-        registerDto,
-      );
+      // Register business for the service provider (provide a valid CreateBusinessDto)
+      // TODO: Replace these placeholder values with real business registration data from the user
+      await this.businessesService.create({
+        user_id: savedUser.id,
+        name: `${registerDto.first_name}'s Business`,
+        type: 'Car Wash Service',
+        description: 'Car washing and detailing services',
+        business_address: registerDto.business_address || '',
+        city: registerDto.city || '',
+        state: registerDto.state || '',
+        zip_code: registerDto.zip_code || '',
+        phone: registerDto.phone || '',
+        email: registerDto.email,
+        // image, location_id, operating_hours can be added if available
+      });
 
       // Generate tokens
       const tokens = await this.getTokens(
@@ -497,6 +508,7 @@ export class AuthService {
       await this.resendVerificationEmail(savedUser.email);
 
       // Return user without sensitive fields
+      //eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password, ...userResponse } = savedUser;
 
       return {
