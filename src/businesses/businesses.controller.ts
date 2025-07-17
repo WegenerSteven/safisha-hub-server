@@ -7,6 +7,9 @@ import {
   Param,
   Delete,
   UseGuards,
+  HttpException,
+  HttpStatus,
+  Put,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BusinessesService } from './businesses.service';
@@ -17,29 +20,50 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../users/entities/user.entity';
 import {
-  GetCurrentUser,
+  /*GetCurrentUser*/
   GetCurrentUserId,
 } from '../auth/decorators/get-current-user.decorator';
 
 @ApiTags('businesses')
+@ApiBearerAuth()
 @Controller('businesses')
 export class BusinessesController {
   constructor(private readonly businessesService: BusinessesService) {}
 
   @Post()
   @UseGuards(AtGuard, RolesGuard)
-  @Roles(Role.SERVICE_PROVIDER, Role.ADMIN)
+  @Roles(Role.SERVICE_PROVIDER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a new business' })
-  create(
+  @ApiOperation({ summary: 'Create a new business for the current provider' })
+  async create(
     @Body() createBusinessDto: CreateBusinessDto,
     @GetCurrentUserId() userId: string,
   ) {
-    // Service providers can only create businesses for themselves
-    if (createBusinessDto.user_id !== userId) {
-      createBusinessDto.user_id = userId;
+    // Check if user already has a business
+    const existingBusiness = await this.businessesService.findByUserId(userId);
+    if (existingBusiness) {
+      throw new HttpException(
+        'User already has a registered business',
+        HttpStatus.BAD_REQUEST,
+      );
     }
+
+    // Set the user_id to current user regardless of what's in DTO
+    createBusinessDto.user_id = userId;
     return this.businessesService.create(createBusinessDto);
+  }
+
+  @Get('my-business')
+  @UseGuards(AtGuard, RolesGuard)
+  @Roles(Role.SERVICE_PROVIDER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get the current provider's business" })
+  async getMyBusiness(@GetCurrentUserId() userId: string) {
+    const business = await this.businessesService.findByUserId(userId);
+    if (!business) {
+      throw new HttpException('Business not found', HttpStatus.NOT_FOUND);
+    }
+    return business;
   }
 
   @Get()
@@ -55,9 +79,41 @@ export class BusinessesController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Get business by ID' })
+  @ApiOperation({ summary: 'Get a business by ID' })
   findOne(@Param('id') id: string) {
     return this.businessesService.findOne(id);
+  }
+
+  @Put(':id')
+  @UseGuards(AtGuard, RolesGuard)
+  @Roles(Role.SERVICE_PROVIDER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a business by ID' })
+  async update(
+    @Param('id') id: string,
+    @Body() updateBusinessDto: UpdateBusinessDto,
+    @GetCurrentUserId() userId: string,
+  ) {
+    // Ensure business belongs to the user
+    const business = await this.businessesService.findOne(id);
+    if (!business) {
+      throw new HttpException('Business not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (business.user_id !== userId) {
+      throw new HttpException(
+        'You can only update your own business',
+        HttpStatus.FORBIDDEN,
+      );
+    }
+
+    return this.businessesService.update(id, updateBusinessDto);
+  }
+
+  @Get(':id/services')
+  @ApiOperation({ summary: 'Get services by business ID' })
+  getBusinessServices(@Param('id') id: string) {
+    return this.businessesService.getBusinessServices(id);
   }
 
   @Patch(':id')
@@ -65,22 +121,6 @@ export class BusinessesController {
   @Roles(Role.SERVICE_PROVIDER, Role.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a business' })
-  async update(
-    @Param('id') id: string,
-    @Body() updateBusinessDto: UpdateBusinessDto,
-    @GetCurrentUserId() userId: string,
-    @GetCurrentUser('role') role: Role,
-  ) {
-    // Check if business belongs to this user before updating
-    if (role !== Role.ADMIN) {
-      const business = await this.businessesService.findOne(id);
-      if (business && business['user_id'] !== userId) {
-        throw new Error('Unauthorized: You can only update your own business');
-      }
-    }
-    return this.businessesService.update(id, updateBusinessDto);
-  }
-
   @Delete(':id')
   @UseGuards(AtGuard, RolesGuard)
   @Roles(Role.ADMIN)

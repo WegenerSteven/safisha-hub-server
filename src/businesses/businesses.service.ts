@@ -2,11 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Business } from './entities/business.entity';
-import { BusinessHours } from './entities/business-hours.entity';
+// import { BusinessHours } from './entities/business-hours.entity';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { UsersService } from '../users/users.service';
-import { LocationsService } from '../location/locations.service';
+// import { LocationsService } from '../location/locations.service';
 
 @Injectable()
 export class BusinessesService {
@@ -14,11 +14,8 @@ export class BusinessesService {
     @InjectRepository(Business)
     private businessRepository: Repository<Business>,
 
-    @InjectRepository(BusinessHours)
-    private businessHoursRepository: Repository<BusinessHours>,
-
     private usersService: UsersService,
-    private locationsService: LocationsService, // Note the plural name: locationsService
+    // private locationsService: LocationsService, // Note the plural name: locationsService
   ) {}
 
   async create(createBusinessDto: CreateBusinessDto): Promise<Business> {
@@ -36,27 +33,19 @@ export class BusinessesService {
       name: createBusinessDto.name,
       type: createBusinessDto.type,
       description: createBusinessDto.description,
-      address: createBusinessDto.address,
+      business_address: createBusinessDto.business_address,
       city: createBusinessDto.city,
       state: createBusinessDto.state,
       zip_code: createBusinessDto.zip_code,
       phone: createBusinessDto.phone,
       email: createBusinessDto.email,
       image: createBusinessDto.image,
-      location_id: createBusinessDto.location_id,
+      is_verified: createBusinessDto.is_verified || false,
+      // location_id: createBusinessDto.location_id,
     });
 
     // Save business first to get the ID
     const savedBusiness = await this.businessRepository.save(business);
-
-    // Create and save business hours
-    if (createBusinessDto.operating_hours) {
-      const businessHours = this.businessHoursRepository.create({
-        business_id: savedBusiness.id,
-        hours: createBusinessDto.operating_hours,
-      });
-      await this.businessHoursRepository.save(businessHours);
-    }
 
     // Return the business with all related data
     return this.findOne(savedBusiness.id);
@@ -64,14 +53,14 @@ export class BusinessesService {
 
   async findAll(): Promise<Business[]> {
     return this.businessRepository.find({
-      relations: ['user', 'location', 'operating_hours'],
+      relations: ['user', 'services'],
     });
   }
 
   async findOne(id: string): Promise<Business> {
     const business = await this.businessRepository.findOne({
       where: { id },
-      relations: ['user', 'location', 'operating_hours'],
+      relations: ['user'],
     });
 
     if (!business) {
@@ -81,19 +70,23 @@ export class BusinessesService {
     return business;
   }
 
-  async findByUserId(userId: string): Promise<Business> {
-    const business = await this.businessRepository.findOne({
+  async findByUserId(userId: string): Promise<Business | null> {
+    return this.businessRepository.findOne({
       where: { user_id: userId },
-      relations: ['user', 'location', 'operating_hours'],
+    });
+  }
+
+  async getBusinessServices(businessId: string) {
+    const business = await this.businessRepository.findOne({
+      where: { id: businessId },
+      relations: ['services', 'services.category'],
     });
 
     if (!business) {
-      throw new NotFoundException(
-        `Business for user with ID ${userId} not found`,
-      );
+      throw new NotFoundException(`Business with ID ${businessId} not found`);
     }
 
-    return business;
+    return business.services;
   }
 
   async update(
@@ -105,12 +98,6 @@ export class BusinessesService {
 
     // Update business properties
     Object.assign(business, updateBusinessDto);
-
-    // Update operating hours if provided
-    if (updateBusinessDto.operating_hours && business.operating_hours) {
-      business.operating_hours.hours = updateBusinessDto.operating_hours;
-      await this.businessHoursRepository.save(business.operating_hours);
-    }
 
     // Save updated business
     return this.businessRepository.save(business);
