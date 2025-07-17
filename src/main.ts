@@ -64,7 +64,6 @@ async function bootstrap() {
     )
     .setVersion('1.0')
     .addTag('Authentication', 'Authentication endpoints')
-    .addTag('Users', 'User management endpoints')
     .addTag('customers', 'Customer management endpoints')
     .addTag('service-providers', 'Service provider management endpoints')
     .addTag('services', 'Service management endpoints')

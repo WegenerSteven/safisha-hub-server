@@ -110,15 +110,15 @@ export class BookingsService {
       if (
         bookingWithRelations &&
         bookingWithRelations.service &&
-        bookingWithRelations.service.provider_id
+        bookingWithRelations.service.business_id
       ) {
         try {
           this.logger.log(
-            `Sending notification to provider ${bookingWithRelations.service.provider_id}`,
+            `Sending notification to provider ${bookingWithRelations.service.business_id} for booking ${savedBooking.id}`,
           );
 
           await this.notificationsService.create({
-            user_id: bookingWithRelations.service.provider_id,
+            user_id: bookingWithRelations.service.business_id,
             type: NotificationType.BOOKING_CONFIRMATION,
             title: 'New Booking Request',
             message: `You have a new booking request for ${bookingWithRelations.service.name} on ${createBookingDto.service_date} at ${createBookingDto.service_time}`,
@@ -134,7 +134,7 @@ export class BookingsService {
           // Emit event for other systems to react to
           this.eventEmitter.emit('booking.created', {
             bookingId: savedBooking.id,
-            providerId: bookingWithRelations.service.provider_id,
+            providerId: bookingWithRelations.service.business_id,
             customerId: userId,
           });
 
@@ -249,7 +249,7 @@ export class BookingsService {
       // Only allow access to one's own bookings unless they're a service provider
       if (
         booking.user_id !== userId &&
-        booking.service?.provider_id !== userId
+        booking.service?.business_id !== userId
       ) {
         throw new ForbiddenException(
           'You do not have permission to access this booking',
@@ -350,15 +350,15 @@ export class BookingsService {
 
             // Notify service provider if user updated
             if (
-              bookingWithRelations.service?.provider_id &&
+              bookingWithRelations.service?.business_id &&
               booking.user_id === userId
             ) {
               this.logger.log(
-                `Sending update notification to provider ${bookingWithRelations.service.provider_id}`,
+                `Sending update notification to provider ${bookingWithRelations.service.business_id}`,
               );
 
               await this.notificationsService.create({
-                user_id: bookingWithRelations.service.provider_id,
+                user_id: bookingWithRelations.service.business_id,
                 type: NotificationType.SYSTEM,
                 title: 'Booking Updated',
                 message: `A booking for ${bookingWithRelations.service.name} on ${this.formatDateForMessage(bookingWithRelations.service_date)} has been updated.`,
@@ -451,7 +451,7 @@ export class BookingsService {
 
         if (bookingWithRelations) {
           // If cancelled by service provider, notify customer
-          if (bookingWithRelations.service?.provider_id === userId) {
+          if (bookingWithRelations.service?.business_id === userId) {
             this.logger.log(
               `Sending cancellation notification to user ${bookingWithRelations.user_id}`,
             );
@@ -474,14 +474,14 @@ export class BookingsService {
           // If cancelled by customer, notify provider
           else if (
             bookingWithRelations.user_id === userId &&
-            bookingWithRelations.service?.provider_id
+            bookingWithRelations.service?.business_id
           ) {
             this.logger.log(
-              `Sending cancellation notification to provider ${bookingWithRelations.service.provider_id}`,
+              `Sending cancellation notification to provider ${bookingWithRelations.service.business_id}`,
             );
 
             await this.notificationsService.create({
-              user_id: bookingWithRelations.service.provider_id,
+              user_id: bookingWithRelations.service.business_id,
               type: NotificationType.BOOKING_CANCELLED,
               title: 'Booking Cancelled by Customer',
               message: `A booking for ${bookingWithRelations.service.name} on ${this.formatDateForMessage(bookingWithRelations.service_date)} has been cancelled by the customer.${reason ? ` Reason: ${reason}` : ''}`,
