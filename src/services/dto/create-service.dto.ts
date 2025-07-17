@@ -25,7 +25,7 @@ export class CreateServiceDto {
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @IsUUID()
-  provider_id: string;
+  business_id: string;
 
   @ApiProperty({
     description: 'Service category ID',

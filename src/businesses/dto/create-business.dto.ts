@@ -3,9 +3,9 @@ import {
   IsString,
   IsUUID,
   IsOptional,
-  IsObject,
   IsNotEmpty,
   IsEmail,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateBusinessDto {
@@ -32,7 +32,7 @@ export class CreateBusinessDto {
   @ApiProperty({ description: 'Business address' })
   @IsString()
   @IsNotEmpty()
-  address: string;
+  business_address: string;
 
   @ApiProperty({ description: 'City' })
   @IsString()
@@ -64,33 +64,13 @@ export class CreateBusinessDto {
   @IsOptional()
   image?: string;
 
-  @ApiProperty({ description: 'Location ID', required: false })
-  @IsUUID()
-  @IsOptional()
-  location_id?: string;
+  // @ApiProperty({ description: 'Location ID', required: false })
+  // @IsUUID()
+  // @IsOptional()
+  // location_id?: string;
 
-  @ApiProperty({
-    description: 'Operating hours',
-    required: false,
-    example: {
-      monday: { open: '08:00', close: '18:00', closed: false },
-      tuesday: { open: '08:00', close: '18:00', closed: false },
-      wednesday: { open: '08:00', close: '18:00', closed: false },
-      thursday: { open: '08:00', close: '18:00', closed: false },
-      friday: { open: '08:00', close: '19:00', closed: false },
-      saturday: { open: '09:00', close: '17:00', closed: false },
-      sunday: { open: '10:00', close: '16:00', closed: true },
-    },
-  })
-  @IsObject()
+  @ApiProperty({ description: 'Business verification status', required: false })
+  @IsBoolean()
   @IsOptional()
-  operating_hours?: {
-    monday: { open: string; close: string; closed: boolean };
-    tuesday: { open: string; close: string; closed: boolean };
-    wednesday: { open: string; close: string; closed: boolean };
-    thursday: { open: string; close: string; closed: boolean };
-    friday: { open: string; close: string; closed: boolean };
-    saturday: { open: string; close: string; closed: boolean };
-    sunday: { open: string; close: string; closed: boolean };
-  };
+  is_verified?: boolean;
 }

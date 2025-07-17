@@ -27,7 +27,15 @@ export class ServiceFilterDto {
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by service provider ID',
+    description: 'Filter by business ID',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
+  @IsOptional()
+  @IsUUID()
+  business_id?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by service provider ID (deprecated, use business_id)',
     example: '123e4567-e89b-12d3-a456-426614174000',
   })
   @IsOptional()
