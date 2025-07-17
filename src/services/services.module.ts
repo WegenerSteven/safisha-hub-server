@@ -7,6 +7,8 @@ import { ServiceAddOn } from './entities/service-addon.entity';
 import { ServiceCategory } from './entities/service-category.entity';
 import { ServicePricing } from './entities/service-pricing.entity';
 import { User } from '../users/entities/user.entity';
+import { Business } from '../businesses/entities/business.entity';
+import { BusinessesModule } from '../businesses/businesses.module';
 
 @Module({
   imports: [
@@ -16,7 +18,9 @@ import { User } from '../users/entities/user.entity';
       ServiceCategory,
       ServicePricing,
       User,
+      Business,
     ]),
+    BusinessesModule,
   ],
   controllers: [ServicesController],
   providers: [ServicesService],

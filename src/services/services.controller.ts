@@ -1,5 +1,4 @@
 import {
-  Controller,
   Get,
   Post,
   Body,
@@ -12,6 +11,8 @@ import {
   HttpCode,
   HttpStatus,
   Request,
+  ForbiddenException,
+  Controller,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -22,14 +23,18 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
+import { BusinessesService } from '../businesses/businesses.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { Service } from './entities/service.entity';
 import { ServiceCategory } from './entities/service-category.entity';
-import { ServiceStatus, ServiceType, VehicleType } from './enums/service.enums';
 import { ServiceFilterDto } from './dto/service-filter.dto';
 import { AtGuard } from '../auth/guards/at.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorators';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Role } from 'src/users/entities/user.entity';
+import { GetCurrentUserId } from 'src/auth/decorators/get-current-user.decorator';
 
 // Define an interface for the request object with user property
 interface RequestWithUser {
@@ -44,8 +49,10 @@ interface RequestWithUser {
 @ApiTags('services')
 @Controller('services')
 export class ServicesController {
-  constructor(private readonly servicesService: ServicesService) {}
-
+  constructor(
+    private readonly servicesService: ServicesService,
+    private readonly businessesService: BusinessesService,
+  ) {}
   @Get('categories')
   @Public()
   @ApiOperation({ summary: 'Get all service categories' })
@@ -64,7 +71,8 @@ export class ServicesController {
   }
 
   @Post()
-  @UseGuards(AtGuard)
+  @UseGuards(AtGuard, RolesGuard)
+  @Roles(Role.SERVICE_PROVIDER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new service' })
   @ApiResponse({
@@ -74,24 +82,16 @@ export class ServicesController {
   })
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async create(
+  async createService(
     @Body() createServiceDto: CreateServiceDto,
-    @Request() req: RequestWithUser,
+    @GetCurrentUserId() userId: string,
   ): Promise<Service> {
-    // Get the user_id from the authenticated user
-    const userId = req.user.id;
-    console.log('Creating service for user:', userId);
-
-    // We need to resolve the service provider ID from the user ID
-    // For now, let's use the userId as provider_id and let the service handle the lookup
-    const serviceData = {
-      ...createServiceDto,
-      provider_id: userId, // This will be resolved in the service
-    };
-
-    console.log('Service creation data:', serviceData);
-
-    return this.servicesService.createForUser(userId, createServiceDto);
+    //validate that the business belongs to the user
+    const business = await this.businessesService.findByUserId(userId);
+    if (!business || business.id !== createServiceDto.business_id) {
+      throw new ForbiddenException('you do not own this business');
+    }
+    return this.servicesService.create(createServiceDto);
   }
 
   @Get()
@@ -102,7 +102,7 @@ export class ServicesController {
     enum: Object.values(ServiceCategory),
     required: false,
   })
-  @ApiQuery({ name: 'providerId', required: false })
+  @ApiQuery({ name: 'business_id', required: false })
   @ApiQuery({ name: 'locationId', required: false })
   @ApiQuery({ name: 'isActive', type: Boolean, required: false })
   @ApiQuery({ name: 'search', required: false })
@@ -111,37 +111,9 @@ export class ServicesController {
     description: 'Services retrieved successfully',
     type: [Service],
   })
-  findAll(
-    @Query('search') search?: string,
-    @Query('provider_id') provider_id?: string,
-    @Query('category_id') category_id?: string,
-    @Query('location_id') location_id?: string,
-    @Query('status') status?: ServiceStatus,
-    @Query('service_type') service_type?: ServiceType,
-    @Query('vehicle_type') vehicle_type?: VehicleType,
-    @Query('is_available') is_available?: boolean,
-    @Query('min_price') min_price?: number,
-    @Query('max_price') max_price?: number,
-    @Query('page') page?: number,
-    @Query('limit') limit?: number,
-    @Query('sort_by') sort_by?: string,
-    @Query('sort_order') sort_order?: 'ASC' | 'DESC',
-  ) {
+  findAll(@Query('search') search?: string) {
     const filters: ServiceFilterDto = {
       search,
-      provider_id,
-      category_id,
-      location_id,
-      status,
-      service_type,
-      vehicle_type,
-      is_available,
-      min_price,
-      max_price,
-      page,
-      limit,
-      sort_by,
-      sort_order,
     };
 
     return this.servicesService.findAll(filters);

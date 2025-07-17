@@ -18,6 +18,7 @@ import { CreateServiceCategoryDto } from './dto/create-service-category.dto';
 import { UpdateServiceCategoryDto } from './dto/update-service-category.dto';
 import { CreateServicePricingDto } from './dto/create-service-pricing.dto';
 import { ServiceFilterDto } from './dto/service-filter.dto';
+import { Business } from '../businesses/entities/business.entity';
 
 @Injectable()
 export class ServicesService {
@@ -30,6 +31,8 @@ export class ServicesService {
     private readonly pricingRepository: Repository<ServicePricing>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Business)
+    private readonly businessRepository: Repository<Business>,
   ) {}
 
   // Service Category Methods
@@ -137,10 +140,10 @@ export class ServicesService {
 
     console.log('Service provider found:', serviceProvider.business_name);
 
-    // Now create the service with the correct provider_id
+    // Now create the service with the correct business_id
     const serviceData = {
       ...createServiceDto,
-      provider_id: serviceProvider.id,
+      business_id: serviceProvider.id,
     };
 
     return this.create(serviceData);
@@ -160,9 +163,9 @@ export class ServicesService {
 
     console.log('Category found:', category.name);
 
-    // Verify service provider exists - the provider_id should reference a user with SERVICE_PROVIDER role
+    // Verify service provider exists - the business_id should reference a user with SERVICE_PROVIDER role
     const serviceProvider = await this.userRepository.findOne({
-      where: { id: createServiceDto.provider_id, role: Role.SERVICE_PROVIDER },
+      where: { id: createServiceDto.business_id, role: Role.SERVICE_PROVIDER },
     });
 
     if (!serviceProvider) {
@@ -195,10 +198,92 @@ export class ServicesService {
     }
   }
 
+  async createForUserBusiness(
+    userId: string,
+    createServiceDto: CreateServiceDto,
+  ): Promise<Service> {
+    console.log('Creating service for user:', userId);
+
+    // First, find the service provider (user with SERVICE_PROVIDER role)
+    const serviceProvider = await this.userRepository.findOne({
+      where: { id: userId, role: Role.SERVICE_PROVIDER },
+    });
+
+    if (!serviceProvider) {
+      throw new NotFoundException(
+        'Service provider profile not found. Only service providers can create services.',
+      );
+    }
+
+    // Find the business for this user
+    const business = await this.businessRepository.findOne({
+      where: { user_id: userId },
+    });
+
+    if (!business) {
+      throw new BadRequestException(
+        'Business not found. Please register your business first before adding services.',
+      );
+    }
+
+    console.log('Business found:', business.name);
+
+    // Now create the service with the business_id
+    const serviceData = {
+      ...createServiceDto,
+      business_id: business.id,
+    };
+
+    return this.createWithBusiness(serviceData);
+  }
+
+  async createWithBusiness(
+    createServiceDto: CreateServiceDto & { business_id: string },
+  ): Promise<Service> {
+    console.log('Creating service with business DTO:', createServiceDto);
+
+    // Verify category exists
+    const category = await this.categoryRepository.findOne({
+      where: { id: createServiceDto.category_id, is_active: true },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Service category not found or inactive');
+    }
+
+    // Verify business exists
+    const business = await this.businessRepository.findOne({
+      where: { id: createServiceDto.business_id },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    try {
+      const service = this.serviceRepository.create({
+        ...createServiceDto,
+        status: ServiceStatus.ACTIVE,
+      });
+
+      const savedService = await this.serviceRepository.save(service);
+      console.log('Service created successfully:', savedService);
+
+      return savedService;
+    } catch (error: unknown) {
+      console.error('Error creating service:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new BadRequestException(
+        `Failed to create service: ${errorMessage}`,
+      );
+    }
+  }
+
   async findAll(filters: ServiceFilterDto = {}) {
     const {
       search,
-      provider_id,
+      business_id,
       category_id,
       location_id,
       status,
@@ -216,7 +301,8 @@ export class ServicesService {
     const queryBuilder: SelectQueryBuilder<Service> = this.serviceRepository
       .createQueryBuilder('service')
       .leftJoinAndSelect('service.category', 'category')
-      .leftJoinAndSelect('service.provider', 'provider')
+      .leftJoinAndSelect('service.business', 'business')
+      .leftJoinAndSelect('business.user', 'user')
       .leftJoinAndSelect('service.pricing', 'pricing')
       .leftJoinAndSelect('service.addons', 'addons');
 
@@ -228,10 +314,24 @@ export class ServicesService {
       );
     }
 
-    if (provider_id) {
-      queryBuilder.andWhere('service.provider_id = :provider_id', {
-        provider_id,
+    if (business_id) {
+      queryBuilder.andWhere('service.business_id = :business_id', {
+        business_id,
       });
+    }
+
+    // Legacy support for business_id
+    if (business_id && !business_id) {
+      // Find the business ID that belongs to this provider
+      const business = await this.businessRepository.findOne({
+        where: { user_id: business_id },
+      });
+
+      if (business) {
+        queryBuilder.andWhere('service.business_id = :business_id', {
+          business_id: business.id,
+        });
+      }
     }
 
     if (category_id) {
@@ -334,7 +434,16 @@ export class ServicesService {
   }
 
   async findByProvider(providerId: string, filters: ServiceFilterDto = {}) {
-    return this.findAll({ ...filters, provider_id: providerId });
+    // Find the business for this provider
+    const business = await this.businessRepository.findOne({
+      where: { user_id: providerId },
+    });
+
+    if (!business) {
+      return [];
+    }
+
+    return this.findAll({ ...filters, business_id: business.id });
   }
 
   async findByProviderId(userId: string): Promise<Service[]> {
@@ -350,12 +459,22 @@ export class ServicesService {
       }
 
       // Now get services for this provider
+      // Find the business for this provider
+      const business = await this.businessRepository.findOne({
+        where: { user_id: serviceProvider.id },
+      });
+
+      if (!business) {
+        console.log('No business found for provider:', serviceProvider.id);
+        return [];
+      }
+
       const services = await this.serviceRepository.find({
-        where: { provider_id: serviceProvider.id },
+        where: { business_id: business.id },
         relations: [
           'category',
-          'provider',
           'business',
+          'business.user',
           'business.operating_hours',
           'pricings',
         ],
