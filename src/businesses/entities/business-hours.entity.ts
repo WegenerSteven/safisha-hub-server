@@ -2,7 +2,6 @@ import {
   Column,
   Entity,
   PrimaryGeneratedColumn,
-  OneToOne,
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
@@ -17,7 +16,6 @@ export class BusinessHours {
   @Column({ type: 'uuid' })
   business_id: string;
 
-  @OneToOne(() => Business, (business) => business.operating_hours)
   @JoinColumn({ name: 'business_id' })
   business: Business;
 

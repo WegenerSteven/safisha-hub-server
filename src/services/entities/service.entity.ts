@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
   Index,
 } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+//import { User } from '../../users/entities/user.entity';
 import { Business } from '../../businesses/entities/business.entity';
 import { Location } from '../../location/entities/location.entity';
 import { ServiceAddOn } from './service-addon.entity';
@@ -24,21 +24,12 @@ import {
 } from '../enums/service.enums';
 
 @Entity('services')
-@Index(['provider_id', 'status'])
+@Index(['business_id', 'status'])
 @Index(['category_id', 'status'])
 @Index(['vehicle_type', 'service_type'])
 export class Service {
   @PrimaryGeneratedColumn('uuid')
   id: string;
-
-  @Column({ type: 'uuid' })
-  provider_id: string;
-
-  @ManyToOne(() => User, (user) => user.services, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'provider_id' })
-  provider: User;
 
   @Column({ type: 'uuid', nullable: true })
   business_id: string;

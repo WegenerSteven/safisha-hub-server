@@ -10,7 +10,7 @@ import { Booking } from '../../bookings/entities/booking.entity';
 import { Payment } from '../../payment/entities/payment.entity';
 import { Review } from '../../reviews/entities/review.entity';
 import { Notification } from '../../notification/entities/notification.entity';
-import { Service } from '../../services/entities/service.entity';
+//import { Service } from '../../services/entities/service.entity';
 import { Exclude } from 'class-transformer';
 
 export enum Role {
@@ -156,9 +156,6 @@ export class User {
 
   @OneToMany(() => Notification, (notification) => notification.user)
   notifications: Notification[];
-
-  @OneToMany(() => Service, (service) => service.provider)
-  services: Service[];
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
