@@ -56,28 +56,28 @@ export class ServiceProviderDashboardService {
 
     // Get services count
     const totalServices = await this.serviceRepository.count({
-      where: { provider_id: providerId },
+      where: { business_id: providerId },
     });
 
     const activeServices = await this.serviceRepository.count({
-      where: { provider_id: providerId, status: ServiceStatus.ACTIVE },
+      where: { business_id: providerId, status: ServiceStatus.ACTIVE },
     });
 
     // Get bookings statistics
     const totalBookings = await this.bookingRepository.count({
-      where: { service: { provider_id: providerId } },
+      where: { service: { business_id: providerId } },
     });
 
     const pendingBookings = await this.bookingRepository.count({
       where: {
-        service: { provider_id: providerId },
+        service: { business_id: providerId },
         status: BookingStatus.PENDING,
       },
     });
 
     const completedBookings = await this.bookingRepository.count({
       where: {
-        service: { provider_id: providerId },
+        service: { business_id: providerId },
         status: BookingStatus.COMPLETED,
       },
     });
@@ -95,7 +95,7 @@ export class ServiceProviderDashboardService {
 
     // Get recent bookings
     const recentBookings = await this.bookingRepository.find({
-      where: { service: { provider_id: providerId } },
+      where: { service: { business_id: providerId } },
       order: { created_at: 'DESC' },
       take: 10,
       relations: ['user', 'service'],
@@ -127,7 +127,7 @@ export class ServiceProviderDashboardService {
 
     const pendingBookings = await this.bookingRepository.find({
       where: {
-        service: { provider_id: providerId },
+        service: { business_id: providerId },
         status: BookingStatus.PENDING,
       },
       order: { created_at: 'DESC' },
@@ -150,7 +150,7 @@ export class ServiceProviderDashboardService {
     const booking = await this.bookingRepository.findOne({
       where: {
         id: bookingId,
-        service: { provider_id: providerId },
+        service: { business_id: providerId },
       },
       relations: ['service', 'user'],
     });
@@ -176,7 +176,7 @@ export class ServiceProviderDashboardService {
     const booking = await this.bookingRepository.findOne({
       where: {
         id: bookingId,
-        service: { provider_id: providerId },
+        service: { business_id: providerId },
       },
       relations: ['service', 'user'],
     });
@@ -202,7 +202,7 @@ export class ServiceProviderDashboardService {
     const booking = await this.bookingRepository.findOne({
       where: {
         id: bookingId,
-        service: { provider_id: providerId },
+        service: { business_id: providerId },
       },
       relations: ['service', 'user'],
     });
@@ -227,7 +227,7 @@ export class ServiceProviderDashboardService {
     const booking = await this.bookingRepository.findOne({
       where: {
         id: bookingId,
-        service: { provider_id: providerId },
+        service: { business_id: providerId },
       },
       relations: ['service', 'user'],
     });
