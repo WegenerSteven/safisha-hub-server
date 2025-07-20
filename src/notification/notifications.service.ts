@@ -7,12 +7,14 @@ import {
 } from './entities/notification.entity';
 import { CreateNotificationDto } from './dto/create-notification.dto';
 import { UpdateNotificationDto } from './dto/update-notification.dto';
+import { EmailService } from 'src/email/email-service.service';
 
 @Injectable()
 export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
+    private readonly emailService: EmailService,
   ) {}
 
   async create(
@@ -67,6 +69,22 @@ export class NotificationsService {
     await this.notificationRepository.update(
       { user_id: userId, status: NotificationStatus.UNREAD },
       { status: NotificationStatus.READ, read_at: new Date() },
+    );
+  }
+
+  async sendEmailNotification(
+    to: string,
+    firstName: string,
+    subject: string,
+    message: string,
+    templateData?: Record<string, any>,
+  ) {
+    return await this.emailService.sendNotificationEmail(
+      to,
+      firstName,
+      subject,
+      message,
+      templateData,
     );
   }
 }
