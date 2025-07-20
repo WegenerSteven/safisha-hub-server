@@ -151,6 +151,15 @@ export class ServicesService {
 
   async create(createServiceDto: CreateServiceDto): Promise<Service> {
     console.log('Creating service with DTO:', createServiceDto);
+    // Verify business exists
+    const business = await this.businessRepository.findOne({
+      where: { id: createServiceDto.business_id },
+    });
+    if (!business) {
+      throw new NotFoundException(
+        `Business with ID ${createServiceDto.business_id} not found`,
+      );
+    }
 
     // Verify category exists
     const category = await this.categoryRepository.findOne({
@@ -163,31 +172,14 @@ export class ServicesService {
 
     console.log('Category found:', category.name);
 
-    // Verify service provider exists - the business_id should reference a user with SERVICE_PROVIDER role
-    const serviceProvider = await this.userRepository.findOne({
-      where: { id: createServiceDto.business_id, role: Role.SERVICE_PROVIDER },
+    //convert dto to entity
+    const service = this.serviceRepository.create({
+      ...createServiceDto,
+      category: { id: createServiceDto.category_id },
+      business: { id: createServiceDto.business_id },
     });
-
-    if (!serviceProvider) {
-      throw new NotFoundException('Service provider not found');
-    }
-
-    console.log('Service provider found:', serviceProvider.business_name);
-
-    // Validate pricing
-    if (
-      createServiceDto.discounted_price &&
-      createServiceDto.discounted_price >= createServiceDto.base_price
-    ) {
-      throw new BadRequestException(
-        'Discounted price must be less than base price',
-      );
-    }
-
-    // Create the service
-    const service = this.serviceRepository.create(createServiceDto);
+    // const service = this.serviceRepository.create(createServiceDto);
     console.log('Service entity created, saving to database...');
-
     try {
       const savedService = await this.serviceRepository.save(service);
       console.log('Service saved successfully:', savedService.id);
@@ -196,6 +188,7 @@ export class ServicesService {
       console.error('Error saving service:', error);
       throw new BadRequestException('Failed to create service: ' + error);
     }
+    // return this.serviceRepository.save(service);
   }
 
   async createForUserBusiness(
@@ -217,7 +210,7 @@ export class ServicesService {
 
     // Find the business for this user
     const business = await this.businessRepository.findOne({
-      where: { user_id: userId },
+      where: { user: { id: userId } },
     });
 
     if (!business) {
@@ -303,7 +296,7 @@ export class ServicesService {
       .leftJoinAndSelect('service.category', 'category')
       .leftJoinAndSelect('service.business', 'business')
       .leftJoinAndSelect('business.user', 'user')
-      .leftJoinAndSelect('service.pricing', 'pricing')
+      // .leftJoinAndSelect('service.pricing', 'pricing')
       .leftJoinAndSelect('service.addons', 'addons');
 
     // Apply filters
@@ -324,7 +317,7 @@ export class ServicesService {
     if (business_id && !business_id) {
       // Find the business ID that belongs to this provider
       const business = await this.businessRepository.findOne({
-        where: { user_id: business_id },
+        where: { user: { id: business_id } },
       });
 
       if (business) {
@@ -417,12 +410,11 @@ export class ServicesService {
       where: { id },
       relations: [
         'category',
-        'provider',
         'business',
-        'business.operating_hours',
-        'pricing',
-        'addons',
-        'location',
+        // 'business.operating_hours',
+        // 'pricing',
+        // 'addons',
+        // 'location',
       ],
     });
 
@@ -436,7 +428,7 @@ export class ServicesService {
   async findByProvider(providerId: string, filters: ServiceFilterDto = {}) {
     // Find the business for this provider
     const business = await this.businessRepository.findOne({
-      where: { user_id: providerId },
+      where: { user: { id: providerId } },
     });
 
     if (!business) {
@@ -461,7 +453,7 @@ export class ServicesService {
       // Now get services for this provider
       // Find the business for this provider
       const business = await this.businessRepository.findOne({
-        where: { user_id: serviceProvider.id },
+        where: { user: { id: serviceProvider.id } },
       });
 
       if (!business) {
@@ -475,8 +467,8 @@ export class ServicesService {
           'category',
           'business',
           'business.user',
-          'business.operating_hours',
-          'pricings',
+          // 'business.operating_hours',
+          // 'pricings',
         ],
         order: { created_at: 'DESC' },
       });
@@ -511,16 +503,16 @@ export class ServicesService {
       }
     }
 
-    // Validate pricing
-    const basePrice = updateServiceDto.base_price ?? service.base_price;
-    const discountedPrice =
-      updateServiceDto.discounted_price ?? service.discounted_price;
+    // // Validate pricing
+    // const basePrice = updateServiceDto.base_price ?? service.base_price;
+    // const discountedPrice =
+    //   updateServiceDto.discounted_price ?? service.discounted_price;
 
-    if (discountedPrice && discountedPrice >= basePrice) {
-      throw new BadRequestException(
-        'Discounted price must be less than base price',
-      );
-    }
+    // if (discountedPrice && discountedPrice >= basePrice) {
+    //   throw new BadRequestException(
+    //     'Discounted price must be less than base price',
+    //   );
+    // }
 
     Object.assign(service, updateServiceDto);
     return await this.serviceRepository.save(service);
@@ -613,28 +605,18 @@ export class ServicesService {
   async findPopularServices(limit: number = 10): Promise<Service[]> {
     return await this.serviceRepository.find({
       where: { status: ServiceStatus.ACTIVE, is_available: true },
-      order: { booking_count: 'DESC', average_rating: 'DESC' },
+      order: { booking_count: 'DESC', created_at: 'DESC' },
       take: limit,
-      relations: [
-        'category',
-        'provider',
-        'business',
-        'business.operating_hours',
-      ],
+      relations: ['category', 'business' /*'business.operating_hours'*/],
     });
   }
 
   async findFeaturedServices(limit: number = 10): Promise<Service[]> {
     return await this.serviceRepository.find({
       where: { status: ServiceStatus.ACTIVE, is_available: true },
-      order: { average_rating: 'DESC', booking_count: 'DESC' },
+      order: { created_at: 'DESC' },
       take: limit,
-      relations: [
-        'category',
-        'provider',
-        'business',
-        'business.operating_hours',
-      ],
+      relations: ['category', 'business' /*'business.operating_hours'*/],
     });
   }
 }

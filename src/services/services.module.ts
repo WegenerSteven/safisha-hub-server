@@ -9,6 +9,7 @@ import { ServicePricing } from './entities/service-pricing.entity';
 import { User } from '../users/entities/user.entity';
 import { Business } from '../businesses/entities/business.entity';
 import { BusinessesModule } from '../businesses/businesses.module';
+import { FileUploadService } from 'src/file-upload/file-upload.service';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { BusinessesModule } from '../businesses/businesses.module';
       ServicePricing,
       User,
       Business,
+      FileUploadService,
     ]),
     BusinessesModule,
   ],
