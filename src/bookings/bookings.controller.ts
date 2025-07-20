@@ -11,6 +11,7 @@ import {
   HttpStatus,
   HttpCode,
   BadRequestException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -30,7 +31,14 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '../users/entities/user.entity';
 import { BookingStatus } from './entities/booking.entity';
+import { Request } from 'express';
+import { Req } from '@nestjs/common';
 
+interface AuthUser {
+  userId?: string;
+  id?: string;
+  sub?: string;
+}
 @ApiTags('bookings')
 @Controller('bookings')
 @UseGuards(AtGuard)
@@ -132,6 +140,23 @@ export class BookingsController {
     @GetCurrentUserId() userId: string,
   ) {
     return this.bookingsService.update(id, updateBookingDto, userId);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles(Role.SERVICE_PROVIDER)
+  @Patch(':id/status')
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: { status: BookingStatus },
+    @Req() req: Request,
+  ) {
+    // Use whichever property is available for user id
+    const userId =
+      (req.user as AuthUser)?.userId ||
+      (req.user as AuthUser)?.id ||
+      (req.user as AuthUser)?.sub;
+    if (!userId) throw new UnauthorizedException('User not authenticated');
+    return this.bookingsService.updateStatus(id, body.status, userId);
   }
 
   @Patch(':id/cancel')

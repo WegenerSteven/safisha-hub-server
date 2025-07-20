@@ -110,15 +110,18 @@ export class BookingsService {
       if (
         bookingWithRelations &&
         bookingWithRelations.service &&
-        bookingWithRelations.service.business_id
+        bookingWithRelations.service.business &&
+        bookingWithRelations.service.business.user &&
+        bookingWithRelations.service.business.user.id
       ) {
         try {
+          const providerUserId = bookingWithRelations.service.business.user.id;
           this.logger.log(
-            `Sending notification to provider ${bookingWithRelations.service.business_id} for booking ${savedBooking.id}`,
+            `Sending notification to provider ${providerUserId} for booking ${savedBooking.id}`,
           );
 
           await this.notificationsService.create({
-            user_id: bookingWithRelations.service.business_id,
+            user_id: providerUserId,
             type: NotificationType.BOOKING_CONFIRMATION,
             title: 'New Booking Request',
             message: `You have a new booking request for ${bookingWithRelations.service.name} on ${createBookingDto.service_date} at ${createBookingDto.service_time}`,
@@ -134,7 +137,7 @@ export class BookingsService {
           // Emit event for other systems to react to
           this.eventEmitter.emit('booking.created', {
             bookingId: savedBooking.id,
-            providerId: bookingWithRelations.service.business_id,
+            providerId: providerUserId,
             customerId: userId,
           });
 
@@ -239,24 +242,39 @@ export class BookingsService {
     try {
       const booking = await this.bookingsRepository.findOne({
         where: { id: id.toString() },
-        relations: ['user', 'service', 'booking_addons', 'payment', 'review'],
+        relations: [
+          'user',
+          'service',
+          'booking_addons',
+          'payment',
+          'review',
+          'service.business',
+          'service.business.user',
+        ],
       });
 
       if (!booking) {
         throw new NotFoundException(`Booking with ID ${id} not found`);
       }
 
-      // Only allow access to one's own bookings unless they're a service provider
-      if (
-        booking.user_id !== userId &&
-        booking.service?.business_id !== userId
-      ) {
-        throw new ForbiddenException(
-          'You do not have permission to access this booking',
-        );
+      // Debug log for providerUserId and userId
+      this.logger.debug(
+        `Checking booking access: booking.user_id=${booking.user_id}, providerUserId=${booking.service?.business?.user?.id}, requestUserId=${userId}`,
+      );
+
+      // Only allow access to one's own bookings or if user is the provider for the business
+      const providerUserId = booking.service?.business?.user?.id;
+      if (booking.user_id === userId || providerUserId === userId) {
+        return booking;
       }
 
-      return booking;
+      // Fallback: check if user is a service provider for the business
+      // (e.g., if business.user is not set, but business_id matches user's business)
+      // You may need to adjust this logic based on your actual entity relations
+      // For now, just log and deny
+      throw new ForbiddenException(
+        'You do not have permission to access this booking',
+      );
     } catch (error) {
       if (
         error instanceof NotFoundException ||
@@ -278,6 +296,9 @@ export class BookingsService {
 
       // Find booking first
       const booking = await this.findOne(id, userId);
+      if (!booking) {
+        throw new NotFoundException(`Booking not found`);
+      }
 
       // Check if booking can be updated
       if (
@@ -322,16 +343,15 @@ export class BookingsService {
           // Load the booking with relations to get all the info we need
           const bookingWithRelations = await this.bookingsRepository.findOne({
             where: { id: updatedBooking.id },
-            relations: ['user', 'service'],
+            relations: ['user', 'service', 'service.business'],
           });
 
           if (bookingWithRelations) {
-            // Notify user about status change
+            // Notify customer
             if (bookingWithRelations.user_id) {
               this.logger.log(
                 `Sending status update notification to user ${bookingWithRelations.user_id}`,
               );
-
               await this.notificationsService.create({
                 user_id: bookingWithRelations.user_id,
                 type: NotificationType.SYSTEM,
@@ -346,30 +366,49 @@ export class BookingsService {
                   service_time: bookingWithRelations.service_time,
                 },
               });
+              // Send email notification to customer
+              if (bookingWithRelations.user?.email) {
+                await this.notificationsService.sendEmailNotification(
+                  bookingWithRelations.user.email,
+                  bookingWithRelations.user.first_name ||
+                    bookingWithRelations.user.business_name ||
+                    '',
+                  `Booking ${this.getStatusText(updateBookingDto.status)}`,
+                  `Your booking for ${bookingWithRelations.service?.name || 'service'} on ${this.formatDateForMessage(bookingWithRelations.service_date)} has been ${this.getStatusText(updateBookingDto.status).toLowerCase()}.`,
+                );
+              }
             }
 
-            // Notify service provider if user updated
-            if (
-              bookingWithRelations.service?.business_id &&
-              booking.user_id === userId
-            ) {
+            // Notify provider
+            const providerUserId =
+              bookingWithRelations.service?.business?.user?.id;
+            if (providerUserId) {
               this.logger.log(
-                `Sending update notification to provider ${bookingWithRelations.service.business_id}`,
+                `Sending status update notification to provider ${providerUserId}`,
               );
-
               await this.notificationsService.create({
-                user_id: bookingWithRelations.service.business_id,
+                user_id: providerUserId,
                 type: NotificationType.SYSTEM,
-                title: 'Booking Updated',
-                message: `A booking for ${bookingWithRelations.service.name} on ${this.formatDateForMessage(bookingWithRelations.service_date)} has been updated.`,
+                title: `Booking ${this.getStatusText(updateBookingDto.status)}`,
+                message: `Booking for ${bookingWithRelations.service?.name || 'service'} on ${this.formatDateForMessage(bookingWithRelations.service_date)} has been ${this.getStatusText(updateBookingDto.status).toLowerCase()}.`,
                 data: {
                   booking_id: updatedBooking.id,
                   booking_number: updatedBooking.booking_number,
-                  updated_by: 'customer',
+                  new_status: updateBookingDto.status,
+                  previous_status: oldStatus,
                   service_date: bookingWithRelations.service_date,
                   service_time: bookingWithRelations.service_time,
                 },
               });
+              // Send email notification to provider
+              if (bookingWithRelations.service?.business?.email) {
+                await this.notificationsService.sendEmailNotification(
+                  bookingWithRelations.service.business.email,
+                  bookingWithRelations.service.business.name || '',
+                  `Booking ${this.getStatusText(updateBookingDto.status)}`,
+                  `Booking for ${bookingWithRelations.service?.name || 'service'} on ${this.formatDateForMessage(bookingWithRelations.service_date)} has been ${this.getStatusText(updateBookingDto.status).toLowerCase()}.`,
+                );
+              }
             }
           }
         } catch (notificationError: unknown) {
@@ -398,6 +437,17 @@ export class BookingsService {
     }
   }
 
+  //update booking status
+  async updateStatus(id: string, status: BookingStatus, userId: string) {
+    //find booking and check permisions
+    const booking = await this.findOne(id, userId);
+    if (!booking) {
+      throw new NotFoundException(`Booking with ID ${id} not found`);
+    }
+    booking.status = status;
+    return await this.bookingsRepository.save(booking);
+  }
+
   // Helper to format dates for messages
   private formatDateForMessage(date: Date): string {
     return date.toISOString().split('T')[0];
@@ -422,6 +472,9 @@ export class BookingsService {
 
       // Find booking first
       const booking = await this.findOne(id, userId);
+      if (!booking) {
+        throw new NotFoundException(`Booking with ID ${id} not found`);
+      }
 
       // Check if booking can be cancelled
       if (booking.status === BookingStatus.CANCELLED) {
@@ -527,6 +580,9 @@ export class BookingsService {
     try {
       // Find booking first
       const booking = await this.findOne(id, userId);
+      if (!booking) {
+        throw new NotFoundException(`Booking with ID ${id} not found`);
+      }
 
       // Only allow deletion of pending or cancelled bookings
       if (
@@ -653,10 +709,11 @@ export class BookingsService {
       const [bookings, total] = await this.bookingsRepository
         .createQueryBuilder('booking')
         .leftJoinAndSelect('booking.service', 'service')
+        .leftJoinAndSelect('service.business', 'business')
         .leftJoinAndSelect('booking.user', 'user')
         .leftJoinAndSelect('booking.booking_addons', 'addons')
         .leftJoinAndSelect('booking.payment', 'payment')
-        .where('service.provider_id = :providerId', { providerId })
+        .where('business.user_id = :providerId', { providerId })
         .andWhere(where)
         .orderBy('booking.service_date', 'ASC')
         .addOrderBy('booking.service_time', 'ASC')
