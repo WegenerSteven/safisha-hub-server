@@ -29,7 +29,7 @@ export class BusinessesService {
 
     // Create business entity
     const business = this.businessRepository.create({
-      user_id: createBusinessDto.user_id,
+      user: user,
       name: createBusinessDto.name,
       type: createBusinessDto.type,
       description: createBusinessDto.description,
@@ -72,7 +72,7 @@ export class BusinessesService {
 
   async findByUserId(userId: string): Promise<Business | null> {
     return this.businessRepository.findOne({
-      where: { user_id: userId },
+      where: { user: { id: userId } },
     });
   }
 
