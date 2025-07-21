@@ -17,12 +17,12 @@ export class Business {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
-  user_id: string;
-
   @OneToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
+
+  @Column({ type: 'varchar', length: 255 })
+  email: string;
 
   @OneToMany(() => Service, (service) => service.business)
   services: Service[];
@@ -57,9 +57,6 @@ export class Business {
 
   @Column({ type: 'varchar', length: 20 })
   phone: string;
-
-  @Column({ type: 'varchar', length: 255 })
-  email: string;
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   image: string;

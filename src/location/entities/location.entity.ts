@@ -2,10 +2,9 @@ import {
   Column,
   Entity,
   PrimaryGeneratedColumn,
-  OneToMany,
   CreateDateColumn,
 } from 'typeorm';
-import { Service } from '../../services/entities/service.entity';
+// import { Service } from '../../services/entities/service.entity';
 
 @Entity('locations')
 export class Location {
@@ -33,8 +32,8 @@ export class Location {
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 
-  @OneToMany(() => Service, (service) => service.location)
-  services: Service[];
+  // @OneToMany(() => Service, (service) => service.location)
+  // services: Service[];
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;

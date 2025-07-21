@@ -11,17 +11,16 @@ import {
 } from 'typeorm';
 //import { User } from '../../users/entities/user.entity';
 import { Business } from '../../businesses/entities/business.entity';
-import { Location } from '../../location/entities/location.entity';
 import { ServiceAddOn } from './service-addon.entity';
-import { Booking } from '../../bookings/entities/booking.entity';
-import { Review } from '../../reviews/entities/review.entity';
 import { ServiceCategory } from './service-category.entity';
-import { ServicePricing } from './service-pricing.entity';
+
 import {
-  ServiceStatus,
   ServiceType,
   VehicleType,
+  ServiceStatus,
 } from '../enums/service.enums';
+import { Booking } from 'src/bookings/entities/booking.entity';
+import { User } from 'src/users/entities/user.entity';
 
 @Entity('services')
 @Index(['business_id', 'status'])
@@ -30,6 +29,13 @@ import {
 export class Service {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @Column({ nullable: true })
+  business_email?: string;
 
   @Column({ type: 'uuid', nullable: true })
   business_id: string;
@@ -47,88 +53,45 @@ export class Service {
   @JoinColumn({ name: 'category_id' })
   category: ServiceCategory;
 
-  @Column({ type: 'uuid', nullable: true })
-  location_id: string;
-
-  @ManyToOne(() => Location, (location) => location.services)
-  @JoinColumn({ name: 'location_id' })
-  location: Location;
-
   @Column({ type: 'varchar', length: 255 })
   name: string;
 
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ type: 'text', nullable: true })
-  short_description: string;
-
   @Column({ type: 'enum', enum: ServiceType, default: ServiceType.BASIC })
   service_type: ServiceType;
 
-  @Column({ type: 'enum', enum: VehicleType, default: VehicleType.SEDAN })
+  @Column({ type: 'enum', enum: VehicleType })
   vehicle_type: VehicleType;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   base_price: number;
 
-  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
-  discounted_price: number;
-
   @Column({ type: 'integer', default: 60 })
   duration_minutes: number;
-
-  @Column({ type: 'enum', enum: ServiceStatus, default: ServiceStatus.ACTIVE })
-  status: ServiceStatus;
-
-  @Column({ type: 'text', array: true, nullable: true })
-  features: string[];
-
-  @Column({ type: 'text', array: true, nullable: true })
-  requirements: string[]; // Special requirements or preparation needed
-
-  @Column({ type: 'text', array: true, nullable: true })
-  images: string[]; // Multiple image URLs
 
   @Column({ type: 'varchar', length: 500, nullable: true })
   image_url: string;
 
-  @Column({ type: 'boolean', default: true })
-  is_active: boolean;
-
-  @Column({ type: 'boolean', default: true })
-  is_available: boolean;
+  @Column({ type: 'enum', enum: ServiceStatus, default: ServiceStatus.ACTIVE })
+  status: ServiceStatus;
 
   @Column({ type: 'integer', default: 0 })
   booking_count: number;
 
-  @Column({ type: 'decimal', precision: 3, scale: 2, default: 0.0 })
-  average_rating: number;
-
-  @Column({ type: 'integer', default: 0 })
-  review_count: number;
-
-  @OneToMany(() => ServiceAddOn, (addon) => addon.service)
-  addons: ServiceAddOn[];
+  @Column({ type: 'boolean', default: true })
+  is_available: boolean;
 
   @OneToMany(() => Booking, (booking) => booking.service)
   bookings: Booking[];
 
-  @OneToMany(() => Review, (review) => review.service)
-  reviews: Review[];
+  @OneToMany(() => ServiceAddOn, (addon) => addon.service, { cascade: true })
+  addons: ServiceAddOn[];
 
-  @OneToMany(() => ServicePricing, (pricing) => pricing.service, {
-    cascade: true,
-  })
-  pricing: ServicePricing[];
-
-  @CreateDateColumn({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  @CreateDateColumn()
   created_at: Date;
 
-  @UpdateDateColumn({
-    type: 'timestamp',
-    default: () => 'CURRENT_TIMESTAMP',
-    onUpdate: 'CURRENT_TIMESTAMP',
-  })
+  @UpdateDateColumn()
   updated_at: Date;
 }

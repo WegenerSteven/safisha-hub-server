@@ -8,7 +8,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Service } from '../../services/entities/service.entity';
+// import { Service } from '../../services/entities/service.entity';
 import { Booking } from '../../bookings/entities/booking.entity';
 
 @Entity('reviews')
@@ -33,9 +33,9 @@ export class Review {
   @Column({ type: 'uuid' })
   service_id: string;
 
-  @ManyToOne(() => Service, (service) => service.reviews)
-  @JoinColumn({ name: 'service_id' })
-  service: Service;
+  // @ManyToOne(() => Service, (service) => service.reviews)
+  // @JoinColumn({ name: 'service_id' })
+  // service: Service;
 
   @Column({ type: 'integer' })
   rating: number;
