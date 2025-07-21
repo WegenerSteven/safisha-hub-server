@@ -103,7 +103,12 @@ export class BookingsService {
       // Load the service to get provider information
       const bookingWithRelations = await this.bookingsRepository.findOne({
         where: { id: savedBooking.id },
-        relations: ['user', 'service'],
+        relations: [
+          'user',
+          'service',
+          'service.business',
+          'service.business.user',
+        ],
       });
 
       // Send notification to service provider
@@ -117,8 +122,21 @@ export class BookingsService {
         try {
           const providerUserId = bookingWithRelations.service.business.user.id;
           this.logger.log(
-            `Sending notification to provider ${providerUserId} for booking ${savedBooking.id}`,
+            `Preparing to send notification to provider ${providerUserId} for booking ${savedBooking.id}`,
           );
+          this.logger.debug('[BookingsService] Notification DTO:', {
+            user_id: providerUserId,
+            type: NotificationType.BOOKING_CONFIRMATION,
+            title: 'New Booking Request',
+            message: `You have a new booking request for ${bookingWithRelations.service.name} on ${createBookingDto.service_date} at ${createBookingDto.service_time}`,
+            data: {
+              booking_id: savedBooking.id,
+              booking_number: savedBooking.booking_number,
+              service_date: createBookingDto.service_date,
+              service_time: createBookingDto.service_time,
+              service_name: bookingWithRelations.service.name,
+            },
+          });
 
           await this.notificationsService.create({
             user_id: providerUserId,
@@ -343,14 +361,19 @@ export class BookingsService {
           // Load the booking with relations to get all the info we need
           const bookingWithRelations = await this.bookingsRepository.findOne({
             where: { id: updatedBooking.id },
-            relations: ['user', 'service', 'service.business'],
+            relations: [
+              'user',
+              'service',
+              'service.business',
+              'service.business.user',
+            ],
           });
 
           if (bookingWithRelations) {
-            // Notify customer
+            // Always notify customer when status changes
             if (bookingWithRelations.user_id) {
               this.logger.log(
-                `Sending status update notification to user ${bookingWithRelations.user_id}`,
+                `Sending status update notification to customer ${bookingWithRelations.user_id}`,
               );
               await this.notificationsService.create({
                 user_id: bookingWithRelations.user_id,
@@ -379,7 +402,7 @@ export class BookingsService {
               }
             }
 
-            // Notify provider
+            // Always notify provider when status changes
             const providerUserId =
               bookingWithRelations.service?.business?.user?.id;
             if (providerUserId) {
@@ -401,10 +424,12 @@ export class BookingsService {
                 },
               });
               // Send email notification to provider
-              if (bookingWithRelations.service?.business?.email) {
+              if (bookingWithRelations.service?.business?.user?.email) {
                 await this.notificationsService.sendEmailNotification(
-                  bookingWithRelations.service.business.email,
-                  bookingWithRelations.service.business.name || '',
+                  bookingWithRelations.service.business.user.email,
+                  bookingWithRelations.service.business.user.first_name ||
+                    bookingWithRelations.service.business.name ||
+                    '',
                   `Booking ${this.getStatusText(updateBookingDto.status)}`,
                   `Booking for ${bookingWithRelations.service?.name || 'service'} on ${this.formatDateForMessage(bookingWithRelations.service_date)} has been ${this.getStatusText(updateBookingDto.status).toLowerCase()}.`,
                 );
@@ -651,9 +676,12 @@ export class BookingsService {
 
       // Check if any existing booking overlaps with the requested time
       for (const booking of overlappingBookings) {
-        const existingTime = new Date(
-          `${booking.service_date.toISOString().split('T')[0]}T${booking.service_time}`,
-        );
+        const dateStr =
+          typeof booking.service_date === 'string'
+            ? booking.service_date
+            : booking.service_date.toISOString().split('T')[0];
+        // Convert existing booking date and time to Date object
+        const existingTime = new Date(`${dateStr}T${booking.service_time}`);
         const existingEndTime = new Date(
           existingTime.getTime() + 60 * 60 * 1000,
         ); // 1 hour later
