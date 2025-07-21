@@ -1,190 +1,74 @@
 import {
-  IsString,
-  IsOptional,
-  IsNumber,
-  IsUUID,
+  IsNotEmpty,
   IsEnum,
-  IsArray,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  // isBoolean,
   IsBoolean,
-  IsUrl,
-  MaxLength,
-  MinLength,
-  Min,
-  IsPositive,
 } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ServiceStatus,
   ServiceType,
   VehicleType,
 } from '../enums/service.enums';
+// import { Column } from 'typeorm/decorator/columns/Column';
+import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 
 export class CreateServiceDto {
-  @ApiProperty({
-    description: 'ID of the service provider',
-    example: '123e4567-e89b-12d3-a456-426614174000',
-  })
-  @IsUUID()
+  @IsUUID('4', { message: 'business_id must be a valid UUID v4' })
   business_id: string;
 
-  @ApiProperty({
-    description: 'Service category ID',
-    example: '123e4567-e89b-12d3-a456-426614174001',
-  })
-  @IsUUID()
+  @IsUUID('4', { message: 'category_id must be a valid UUID' })
   category_id: string;
 
-  @ApiPropertyOptional({
-    description: 'Location ID where the service is available',
-    example: '123e4567-e89b-12d3-a456-426614174002',
-  })
-  @IsOptional()
-  @IsUUID()
-  location_id?: string;
-
-  @ApiProperty({
-    description: 'Name of the car wash service',
-    example: 'Premium Car Wash',
-    minLength: 2,
-    maxLength: 255,
-  })
+  @ApiProperty({ required: false })
   @IsString()
-  @MinLength(2)
-  @MaxLength(255)
+  @IsNotEmpty()
   name: string;
 
-  @ApiPropertyOptional({
-    description: 'Detailed description of the service',
-    example:
-      'Professional car wash service with premium cleaning products and interior detailing',
-    maxLength: 1000,
-  })
-  @IsOptional()
+  @ApiProperty({ required: false })
   @IsString()
-  @MaxLength(1000)
+  @IsOptional()
   description?: string;
 
-  @ApiPropertyOptional({
-    description: 'Short description for quick display',
-    example: 'Premium wash with interior cleaning',
-    maxLength: 200,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(200)
-  short_description?: string;
-
-  @ApiProperty({
-    description: 'Type of service',
-    enum: ServiceType,
-    example: ServiceType.PREMIUM,
-  })
+  @ApiProperty({ required: false })
   @IsEnum(ServiceType)
   service_type: ServiceType;
 
-  @ApiProperty({
-    description: 'Vehicle type this service is for',
-    enum: VehicleType,
-    example: VehicleType.SEDAN,
-  })
+  @ApiProperty({ required: false })
   @IsEnum(VehicleType)
   vehicle_type: VehicleType;
 
-  @ApiProperty({
-    description: 'Base price of the service in KES',
-    example: 1500,
-    minimum: 0.01,
-  })
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
+  @Transform(({ value }) => (value ? parseFloat(value) : null))
+  @ApiProperty({ required: false })
+  @IsNumber()
   base_price: number;
 
-  @ApiPropertyOptional({
-    description: 'Discounted price in KES',
-    example: 1200,
-    minimum: 0.01,
-  })
-  @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
-  discounted_price?: number;
-
-  @ApiProperty({
-    description: 'Duration of the service in minutes',
-    example: 60,
-    minimum: 15,
-  })
+  @Transform(({ value }) => (value ? parseInt(value, 10) : null))
+  @ApiProperty({ required: false })
   @IsNumber()
-  @Min(15)
   duration_minutes: number;
 
-  @ApiPropertyOptional({
-    description: 'Service status',
-    enum: ServiceStatus,
-    example: ServiceStatus.ACTIVE,
-  })
   @IsOptional()
+  @ApiProperty({ enum: ServiceStatus, required: false })
   @IsEnum(ServiceStatus)
-  status?: ServiceStatus;
-
-  @ApiPropertyOptional({
-    description: 'List of service features',
-    example: ['Exterior wash', 'Interior cleaning', 'Wax application'],
-    isArray: true,
-    type: String,
-  })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  features?: string[];
+  status: ServiceStatus;
 
-  @ApiPropertyOptional({
-    description: 'Special requirements or preparation needed',
-    example: ['Remove personal items', 'Fuel tank should be accessible'],
-    isArray: true,
-    type: String,
-  })
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  requirements?: string[];
-
-  @ApiPropertyOptional({
-    description: 'Array of service image URLs',
-    example: [
-      'https://example.com/service1.jpg',
-      'https://example.com/service2.jpg',
-    ],
-    isArray: true,
-    type: String,
-  })
+  @ApiProperty({ required: false })
+  @IsString()
   @IsOptional()
-  @IsArray()
-  @IsUrl({}, { each: true })
-  images?: string[];
-
-  @ApiPropertyOptional({
-    description: 'Main service image URL',
-    example: 'https://example.com/images/service.jpg',
-  })
-  @IsOptional()
-  @IsUrl()
   image_url?: string;
 
-  @ApiPropertyOptional({
-    description: 'Whether the service is active',
-    example: true,
-    default: true,
-  })
-  @IsOptional()
-  @IsBoolean()
-  is_active?: boolean;
+  // @IsOptional()
+  // @Column({ type: 'integer', default: 0 })
+  // booking_count: number;
 
-  @ApiPropertyOptional({
-    description: 'Whether the service is available for booking',
-    example: true,
-    default: true,
-  })
+  @ApiProperty({ required: false })
   @IsOptional()
   @IsBoolean()
   is_available?: boolean;
