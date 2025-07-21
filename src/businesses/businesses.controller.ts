@@ -100,7 +100,7 @@ export class BusinessesController {
       throw new HttpException('Business not found', HttpStatus.NOT_FOUND);
     }
 
-    if (business.user_id !== userId) {
+    if (business.user.id !== userId) {
       throw new HttpException(
         'You can only update your own business',
         HttpStatus.FORBIDDEN,
