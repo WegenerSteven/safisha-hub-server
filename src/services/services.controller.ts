@@ -13,6 +13,10 @@ import {
   Request,
   ForbiddenException,
   Controller,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,9 +25,11 @@ import {
   ApiQuery,
   ApiBearerAuth,
   ApiParam,
+  ApiConsumes,
 } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { BusinessesService } from '../businesses/businesses.service';
+// import { FileUploadService } from '../file-upload/file-upload.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { Service } from './entities/service.entity';
@@ -35,6 +41,9 @@ import { Public } from '../auth/decorators/public.decorators';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { Role } from 'src/users/entities/user.entity';
 import { GetCurrentUserId } from 'src/auth/decorators/get-current-user.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { v4 as uuidv4 } from 'uuid';
+import { diskStorage } from 'multer';
 
 // Define an interface for the request object with user property
 interface RequestWithUser {
@@ -52,6 +61,7 @@ export class ServicesController {
   constructor(
     private readonly servicesService: ServicesService,
     private readonly businessesService: BusinessesService,
+    // private readonly fileUploadService: FileUploadService, // Assuming you have a file upload service
   ) {}
   @Get('categories')
   @Public()
@@ -74,22 +84,41 @@ export class ServicesController {
   @UseGuards(AtGuard, RolesGuard)
   @Roles(Role.SERVICE_PROVIDER)
   @ApiBearerAuth()
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Create a new service' })
-  @ApiResponse({
-    status: 201,
-    description: 'Service created successfully',
-    type: Service,
-  })
-  @ApiResponse({ status: 400, description: 'Bad request' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      storage: diskStorage({
+        destination: './uploads/services',
+        filename: (req, file, cb) => {
+          const randomName = uuidv4();
+          cb(null, `${randomName}-${file.originalname}`);
+        },
+      }),
+      fileFilter: (req, file, cb) => {
+        if (file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          cb(null, true);
+        } else {
+          cb(new BadRequestException('Unsupported file type'), false);
+        }
+      },
+      limits: { fileSize: 5 * 1024 * 1024 }, // Limit to 5MB
+    }),
+  )
   async createService(
-    @Body() createServiceDto: CreateServiceDto,
+    @UploadedFile() image: Express.Multer.File,
+    @Body(new ValidationPipe({ transform: true }))
+    createServiceDto: CreateServiceDto,
     @GetCurrentUserId() userId: string,
   ): Promise<Service> {
     //validate that the business belongs to the user
     const business = await this.businessesService.findByUserId(userId);
     if (!business || business.id !== createServiceDto.business_id) {
       throw new ForbiddenException('you do not own this business');
+    }
+    //handle image upload
+    if (image) {
+      createServiceDto.image_url = `/uploads/services/${image.filename}`;
     }
     return this.servicesService.create(createServiceDto);
   }
@@ -115,7 +144,7 @@ export class ServicesController {
     const filters: ServiceFilterDto = {
       search,
     };
-
+    console.log('Received service data:', filters);
     return this.servicesService.findAll(filters);
   }
 
