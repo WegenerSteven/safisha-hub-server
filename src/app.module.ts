@@ -19,6 +19,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { FileUploadModule } from './file-upload/file-upload.module';
 import { BusinessesModule } from './businesses/businesses.module';
 import { AtGuard } from './auth/guards/at.guard';
+import { AiAssistantModule } from './ai-assistant/ai-assistant.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { AtGuard } from './auth/guards/at.guard';
     AnalyticsModule,
     FileUploadModule,
     BusinessesModule,
+    AiAssistantModule,
   ],
   controllers: [],
   providers: [
