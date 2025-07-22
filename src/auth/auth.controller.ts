@@ -214,6 +214,7 @@ export class AuthController {
   }
 
   @Public()
+  @ApiBearerAuth()
   @Get('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify email address' })
