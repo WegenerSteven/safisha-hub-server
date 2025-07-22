@@ -20,10 +20,27 @@ export class NotificationsService {
   async create(
     createNotificationDto: CreateNotificationDto,
   ): Promise<Notification> {
-    const notification = this.notificationRepository.create(
-      createNotificationDto,
-    );
-    return await this.notificationRepository.save(notification);
+    try {
+      console.log(
+        '[NotificationsService] Creating notification:',
+        createNotificationDto,
+      );
+      const notification = this.notificationRepository.create(
+        createNotificationDto,
+      );
+      const saved = await this.notificationRepository.save(notification);
+      console.log('[NotificationsService] Notification saved:', saved);
+      return saved;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      console.error(
+        '[NotificationsService] Failed to save notification:',
+        errorMessage,
+        error,
+      );
+      throw error;
+    }
   }
 
   async findAll(userId?: string): Promise<Notification[]> {
