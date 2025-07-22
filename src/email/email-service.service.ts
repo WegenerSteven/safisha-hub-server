@@ -71,4 +71,33 @@ export class EmailService {
       },
     });
   }
+
+  /**
+   * Send a notification email to a user (customer or provider) for booking events.
+   * @param email Recipient's email address
+   * @param firstName Recipient's first name
+   * @param subject Email subject
+   * @param message Main message body
+   * @param templateData Additional template data (optional)
+   */
+  async sendNotificationEmail(
+    email: string,
+    firstName: string,
+    subject: string,
+    message: string,
+    templateData?: Record<string, any>,
+  ): Promise<void> {
+    await this.mailerService.sendMail({
+      to: email,
+      subject,
+      template: 'notification',
+      context: {
+        firstName,
+        message,
+        ...templateData,
+        companyName: 'SafishaHub',
+        supportEmail: 'support@safishahub.com',
+      },
+    });
+  }
 }
