@@ -5,8 +5,11 @@ import {
   IsNumber,
   IsEnum,
   IsPositive,
+  IsEmail,
+  IsNotEmpty,
   Length,
 } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentStatus, PaymentMethod } from '../entities/payment.entity';
 
 export class CreatePaymentDto {
@@ -36,4 +39,69 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   method?: PaymentMethod;
+}
+export class CreateMpesaPaymentDto {
+  @ApiProperty({ example: 1000, description: 'Amount to pay in KES' })
+  @IsNumber()
+  @IsNotEmpty()
+  amount: number;
+
+  @ApiProperty({
+    example: '254712345678',
+    description: 'Mpesa phone number (format: 2547XXXXXXXX)',
+  })
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'Customer email address',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
+export class CreateCardPaymentDto {
+  @ApiProperty({ example: 1000, description: 'Amount to pay in KES' })
+  @IsNumber()
+  @IsNotEmpty()
+  amount: number;
+
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'Customer email address',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({ example: '4084084084084081', description: 'Card number' })
+  @IsString()
+  @IsNotEmpty()
+  number: string;
+
+  @ApiProperty({ example: '123', description: 'Card CVV' })
+  @IsString()
+  @IsNotEmpty()
+  cvv: string;
+
+  @ApiProperty({ example: '12', description: 'Expiry month (MM)' })
+  @IsString()
+  @IsNotEmpty()
+  expiry_month: string;
+
+  @ApiProperty({ example: '29', description: 'Expiry year (YY)' })
+  @IsString()
+  @IsNotEmpty()
+  expiry_year: string;
+
+  @ApiPropertyOptional({
+    example: '1234',
+    description: 'Card PIN (required for some countries)',
+  })
+  @IsString()
+  @IsNotEmpty()
+  pin?: string;
 }
