@@ -8,12 +8,13 @@ import { User } from './entities/user.entity';
 import { Service } from '../services/entities/service.entity';
 import { Booking } from '../bookings/entities/booking.entity';
 import { DatabaseModule } from 'src/database/database.module';
+import { Business } from '../businesses/entities/business.entity';
 import { FileUploadModule } from '../file-upload/file-upload.module';
 
 @Module({
   imports: [
     DatabaseModule,
-    TypeOrmModule.forFeature([User, Service, Booking]),
+    TypeOrmModule.forFeature([User, Service, Booking, Business]),
     FileUploadModule,
   ],
   controllers: [UsersController, ServiceProviderDashboardController],
