@@ -2,10 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import type {
+  PaystackInitializeResponse,
   PaystackChargeResponse,
   PaystackVerifyResponse,
   PaystackCard,
 } from './payment.interface';
+
 @Injectable()
 export class PaystackService {
   private readonly logger = new Logger(PaystackService.name);
@@ -21,114 +23,184 @@ export class PaystackService {
     });
   }
 
-  // Initialize Mpesa Payment
+  /**
+   * Initialize a payment (for redirect flow)
+   */
+  async initializePayment(
+    amount: number,
+    email: string,
+    metadata?: Record<string, any>,
+  ): Promise<PaystackInitializeResponse> {
+    try {
+      const payload = {
+        amount: amount * 100, // Convert to kobo/cent
+        email,
+        currency: 'KES',
+        callback_url: this.configService.get<string>('CALLBACK_URL'),
+        metadata,
+      };
 
-  async initiateMpesaPayment(
+      this.logger.log(`Initializing payment: ${JSON.stringify(payload)}`);
+
+      const response = await this.api.post<PaystackInitializeResponse>(
+        '/transaction/initialize',
+        payload,
+      );
+      const data = response.data;
+      console.log(`Payment initialized: ${JSON.stringify(data)}`);
+      return data;
+    } catch (error) {
+      this.handleApiError(error, 'Payment initialization failed');
+    }
+  }
+
+  /**
+   * Complete Mpesa payment (STK Push)
+   */
+  async completeMpesaPayment(
     amount: number,
     phone: string,
     email: string,
+    reference: string,
   ): Promise<PaystackChargeResponse> {
-    const payload = {
-      amount: amount * 100, // Convert to kobo/cent
-      email,
-      currency: 'KES',
-      mobile_money: {
-        phone,
-        provider: 'mpesa',
-      },
-      callback_url: this.configService.get<string>('CALLBACK_URL'),
-    };
-
     try {
+      const formattedPhone = this.formatPhone(phone);
+      const payload = {
+        amount: amount * 100,
+        email,
+        currency: 'KES',
+        reference, // Reference from initialization
+        mobile_money: {
+          phone: formattedPhone,
+          provider: 'mpesa',
+        },
+      };
+
+      this.logger.log(`Completing Mpesa payment: ${JSON.stringify(payload)}`);
+
       const response = await this.api.post<PaystackChargeResponse>(
         '/charge',
         payload,
       );
+
       return response.data;
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Paystack Mpesa error', errorMessage);
-      if (
-        error &&
-        typeof error === 'object' &&
-        (error as AxiosError).response
-      ) {
-        this.logger.error(
-          'Paystack error response',
-          JSON.stringify((error as AxiosError).response?.data),
-        );
-      }
-      throw new Error('Payment initialization failed');
+    } catch (error) {
+      this.handleApiError(error, 'Mpesa payment failed');
     }
   }
 
-  // Initialize Card Payment
-
-  async initiateCardPayment(
+  /**
+   * Complete card payment
+   */
+  async completeCardPayment(
     amount: number,
     email: string,
     card: PaystackCard,
+    reference: string,
   ): Promise<PaystackChargeResponse> {
-    const payload = {
-      amount: amount * 100,
-      email,
-      currency: 'KES',
-      card: {
-        number: card.number,
-        cvv: card.cvv,
-        expiry_month: card.expiry_month,
-        expiry_year: card.expiry_year,
-      },
-      pin: card.pin, // Required for some countries
-    };
-
     try {
+      const payload = {
+        amount: amount * 100,
+        email,
+        currency: 'KES',
+        reference, // Reference from initialization
+        card: {
+          number: card.number,
+          cvv: card.cvv,
+          expiry_month: card.expiry_month,
+          expiry_year: card.expiry_year,
+        },
+        pin: card.pin,
+      };
+
+      this.logger.log(`Completing card payment: ${JSON.stringify(payload)}`);
+
       const response = await this.api.post<PaystackChargeResponse>(
         '/charge',
         payload,
       );
+
       return response.data;
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Paystack Card error', errorMessage);
-      if (
-        error &&
-        typeof error === 'object' &&
-        (error as AxiosError).response
-      ) {
-        this.logger.error(
-          'Paystack error response',
-          JSON.stringify((error as AxiosError).response?.data),
-        );
-      }
-      throw new Error('Card payment failed');
+    } catch (error) {
+      this.handleApiError(error, 'Card payment failed');
     }
   }
 
-  // Verify Payment
+  /**
+   * Submit OTP for payment validation
+   */
+  async submitOtp(
+    reference: string,
+    otp: string,
+  ): Promise<PaystackChargeResponse> {
+    try {
+      const payload = { reference, otp };
+
+      const response = await this.api.post<PaystackChargeResponse>(
+        '/charge/submit_otp',
+        payload,
+      );
+
+      return response.data;
+    } catch (error) {
+      this.handleApiError(error, 'OTP submission failed');
+    }
+  }
+
+  /**
+   * Verify payment status
+   */
   async verifyPayment(reference: string): Promise<PaystackVerifyResponse> {
     try {
       const response = await this.api.get<PaystackVerifyResponse>(
         `/transaction/verify/${reference}`,
       );
       return response.data;
-    } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Payment verification failed', errorMessage);
-      if (
-        error &&
-        typeof error === 'object' &&
-        (error as AxiosError).response
-      ) {
-        this.logger.error(
-          'Paystack error response',
-          JSON.stringify((error as AxiosError).response?.data),
-        );
-      }
-      throw new Error('Payment verification failed');
+    } catch (error) {
+      this.handleApiError(error, 'Payment verification failed');
     }
+  }
+
+  /**
+   * Common error handler
+   */
+  private handleApiError(error: unknown, defaultMessage: string): never {
+    let errorMessage = defaultMessage;
+
+    if (error instanceof AxiosError) {
+      errorMessage += `: ${error.message}`;
+      if (error.response) {
+        this.logger.error('API error response', error.response.data);
+        const data: unknown = error.response.data;
+        const detailMessage =
+          data && typeof data === 'object' && 'message' in data
+            ? (data as { message?: string }).message
+            : undefined;
+        errorMessage += ` - ${detailMessage || 'No additional details'}`;
+      }
+    } else if (error instanceof Error) {
+      errorMessage += `: ${error.message}`;
+    }
+
+    this.logger.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  /**
+   * Format phone number for Mpesa
+   */
+  private formatPhone(phone: string): string {
+    const cleaned = phone.replace(/\D/g, '');
+
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+      return '254' + cleaned.substring(1);
+    }
+    if (cleaned.startsWith('254') && cleaned.length === 12) {
+      return cleaned;
+    }
+    if (cleaned.length === 9) {
+      return '254' + cleaned;
+    }
+    throw new Error('Invalid Kenyan phone number format');
   }
 }

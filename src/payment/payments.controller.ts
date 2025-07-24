@@ -1,63 +1,81 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { PaystackService } from './paystack.service';
-import type {
-  PaystackChargeResponse,
-  PaystackVerifyResponse,
-} from './payment.interface';
-import {
-  CreateMpesaPaymentDto,
-  CreateCardPaymentDto,
-} from './dto/create-payment.dto';
-import { VerifyPaymentDto } from './dto/verify-payment.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorators';
 
-@ApiTags('Payments')
+@ApiTags('payments')
+@Public()
 @Controller('payments')
 export class PaymentsController {
   constructor(private readonly paystackService: PaystackService) {}
 
-  @Post('mpesa')
-  @ApiOperation({ summary: 'Initiate Mpesa payment' })
-  @ApiResponse({ status: 200, description: 'Payment initiated', type: Object })
-  async initiateMpesa(
-    @Body() createPaymentDto: CreateMpesaPaymentDto,
-  ): Promise<PaystackChargeResponse> {
-    return this.paystackService.initiateMpesaPayment(
-      createPaymentDto.amount,
-      createPaymentDto.phone,
-      createPaymentDto.email,
+  @Post('initialize')
+  @ApiOperation({ summary: 'Initialize payment' })
+  @ApiResponse({ status: 200, description: 'Payment initialized' })
+  async initializePayment(@Body() body: { amount: number; email: string }) {
+    console.log(
+      `Initializing payment with amount: ${body.amount}, email: ${body.email}`,
+    );
+    return this.paystackService.initializePayment(body.amount, body.email);
+  }
+
+  @Post('mpesa/complete')
+  @ApiOperation({ summary: 'Complete Mpesa payment' })
+  @ApiResponse({ status: 200, description: 'Mpesa payment completed' })
+  async completeMpesaPayment(
+    @Body()
+    body: {
+      amount: number;
+      phone: string;
+      email: string;
+      reference: string;
+    },
+  ) {
+    return this.paystackService.completeMpesaPayment(
+      body.amount,
+      body.phone,
+      body.email,
+      body.reference,
     );
   }
 
-  @Post('card')
-  @ApiOperation({ summary: 'Process card payment' })
-  @ApiResponse({
-    status: 200,
-    description: 'Card payment processed',
-    type: Object,
-  })
-  async processCard(
-    @Body() createCardDto: CreateCardPaymentDto,
-  ): Promise<PaystackChargeResponse> {
-    return this.paystackService.initiateCardPayment(
-      createCardDto.amount,
-      createCardDto.email,
-      {
-        number: createCardDto.number,
-        cvv: createCardDto.cvv,
-        expiry_month: createCardDto.expiry_month,
-        expiry_year: createCardDto.expiry_year,
-        pin: createCardDto.pin,
-      },
+  @Post('card/complete')
+  @ApiOperation({ summary: 'Complete card payment' })
+  @ApiResponse({ status: 200, description: 'Card payment completed' })
+  async completeCardPayment(
+    @Body()
+    body: {
+      amount: number;
+      email: string;
+      card: {
+        number: string;
+        cvv: string;
+        expiry_month: string;
+        expiry_year: string;
+        pin?: string;
+      };
+      reference: string;
+    },
+  ) {
+    return this.paystackService.completeCardPayment(
+      body.amount,
+      body.email,
+      body.card,
+      body.reference,
     );
+  }
+
+  @Post('otp')
+  @ApiOperation({ summary: 'Submit OTP for payment' })
+  @ApiResponse({ status: 200, description: 'OTP submitted' })
+  async submitOtp(@Body() body: { reference: string; otp: string }) {
+    return this.paystackService.submitOtp(body.reference, body.otp);
   }
 
   @Post('verify')
-  @ApiOperation({ summary: 'Verify payment' })
-  @ApiResponse({ status: 200, description: 'Payment verified', type: Object })
-  async verifyPayment(
-    @Body() verifyDto: VerifyPaymentDto,
-  ): Promise<PaystackVerifyResponse> {
-    return this.paystackService.verifyPayment(verifyDto.reference);
+  @ApiOperation({ summary: 'Verify payment status' })
+  @ApiResponse({ status: 200, description: 'Payment verified' })
+  async verifyPayment(@Body() body: { reference: string }) {
+    return this.paystackService.verifyPayment(body.reference);
   }
 }

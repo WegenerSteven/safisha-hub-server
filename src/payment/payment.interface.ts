@@ -1,31 +1,33 @@
-// --- Paystack Response Data Types ---
-export interface PaystackChargeData {
-  reference: string;
-  status: string;
-  display_text?: string;
-  [key: string]: unknown;
+export interface PaystackInitializeResponse {
+  status: boolean;
+  message: string;
+  data: {
+    authorization_url: string;
+    access_code: string;
+    reference: string;
+  };
 }
 
 export interface PaystackChargeResponse {
   status: boolean;
   message: string;
-  data?: PaystackChargeData;
-}
-
-export interface PaystackVerifyData {
-  id: number;
-  status: string;
-  reference: string;
-  amount: number;
-  channel: string;
-  currency: string;
-  [key: string]: unknown;
+  data: {
+    reference: string;
+    status: 'success' | 'failed' | 'pending';
+    gateway_response: string;
+    // ... other fields
+  };
 }
 
 export interface PaystackVerifyResponse {
   status: boolean;
   message: string;
-  data?: PaystackVerifyData;
+  data: {
+    reference: string;
+    amount: number;
+    status: 'success' | 'failed';
+    // ... other fields
+  };
 }
 
 export interface PaystackCard {
