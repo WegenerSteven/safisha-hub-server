@@ -9,6 +9,7 @@ import { User, Role } from '../users/entities/user.entity';
 import { Service } from '../services/entities/service.entity';
 import { Booking, BookingStatus } from '../bookings/entities/booking.entity';
 import { ServiceStatus } from '../services/enums/service.enums';
+import { Business } from '../businesses/entities/business.entity';
 
 export interface ServiceProviderDashboardStats {
   totalServices: number;
@@ -40,6 +41,8 @@ export class ServiceProviderDashboardService {
     private serviceRepository: Repository<Service>,
     @InjectRepository(Booking)
     private bookingRepository: Repository<Booking>,
+    @InjectRepository(Business)
+    private businessRepository: Repository<Business>,
   ) {}
 
   // Get dashboard statistics for service provider
@@ -54,30 +57,39 @@ export class ServiceProviderDashboardService {
       throw new NotFoundException('Service provider not found');
     }
 
+    // Find business for this provider
+    const business = await this.businessRepository.findOne({
+      where: { user: { id: providerId } },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found for provider');
+    }
+
     // Get services count
     const totalServices = await this.serviceRepository.count({
-      where: { business_id: providerId },
+      where: { business_id: business.id },
     });
 
     const activeServices = await this.serviceRepository.count({
-      where: { business_id: providerId, status: ServiceStatus.ACTIVE },
+      where: { business_id: business.id, status: ServiceStatus.ACTIVE },
     });
 
     // Get bookings statistics
     const totalBookings = await this.bookingRepository.count({
-      where: { service: { business_id: providerId } },
+      where: { service: { business_id: business.id } },
     });
 
     const pendingBookings = await this.bookingRepository.count({
       where: {
-        service: { business_id: providerId },
+        service: { business_id: business.id },
         status: BookingStatus.PENDING,
       },
     });
 
     const completedBookings = await this.bookingRepository.count({
       where: {
-        service: { business_id: providerId },
+        service: { business_id: business.id },
         status: BookingStatus.COMPLETED,
       },
     });
@@ -86,7 +98,7 @@ export class ServiceProviderDashboardService {
     const earningsResult = await this.bookingRepository
       .createQueryBuilder('booking')
       .leftJoin('booking.service', 'service')
-      .where('service.provider_id = :providerId', { providerId })
+      .where('service.business_id = :businessId', { businessId: business.id })
       .andWhere('booking.status = :status', { status: BookingStatus.COMPLETED })
       .select('SUM(booking.total_amount)', 'total')
       .getRawOne();
@@ -95,7 +107,7 @@ export class ServiceProviderDashboardService {
 
     // Get recent bookings
     const recentBookings = await this.bookingRepository.find({
-      where: { service: { business_id: providerId } },
+      where: { service: { business_id: business.id } },
       order: { created_at: 'DESC' },
       take: 10,
       relations: ['user', 'service'],
@@ -108,7 +120,7 @@ export class ServiceProviderDashboardService {
       pendingBookings,
       completedBookings,
       totalEarnings,
-      rating: provider.rating,
+      rating: business.rating ?? 0,
       recentBookings,
     };
   }
@@ -125,9 +137,18 @@ export class ServiceProviderDashboardService {
       throw new NotFoundException('Service provider not found');
     }
 
+    // Find business for this provider
+    const business = await this.businessRepository.findOne({
+      where: { user: { id: providerId } },
+    });
+
+    if (!business) {
+      throw new NotFoundException('Business not found for provider');
+    }
+
     const pendingBookings = await this.bookingRepository.find({
       where: {
-        service: { business_id: providerId },
+        service: { business_id: business.id },
         status: BookingStatus.PENDING,
       },
       order: { created_at: 'DESC' },
@@ -265,7 +286,7 @@ export class ServiceProviderDashboardService {
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.service', 'service')
       .leftJoinAndSelect('booking.user', 'user')
-      .where('service.provider_id = :providerId', { providerId });
+      .where('service.business_id = :providerId', { providerId });
 
     if (filters?.status) {
       queryBuilder.andWhere('booking.status = :status', {
