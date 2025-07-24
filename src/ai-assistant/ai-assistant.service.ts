@@ -25,7 +25,8 @@ When a user asks for something that requires action or navigation (e.g., booking
   "text": "You can view our services or book a car wash.",
   "actions": [
     { "label": "View Services", "to": "/services" },
-    { "label": "Book Now", "to": "/booking" }
+    { "label": "Book Now", "to": "/dashboard/bookings" }
+     {"label": "Contact Us", "email US", "to": "/contact}
   ]
 }
 If no actions are relevant, omit the 'actions' field.
