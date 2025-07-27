@@ -31,6 +31,9 @@ export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column()
+  reference: string;
+
   @Column({ type: 'uuid' })
   booking_id: string;
 
@@ -41,12 +44,12 @@ export class Payment {
   @Column({ type: 'uuid' })
   user_id: string;
 
+  @Column({ nullable: true })
+  business_id: string;
+
   @ManyToOne(() => User)
   @JoinColumn({ name: 'user_id' })
   user: User;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  stripe_payment_id: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;

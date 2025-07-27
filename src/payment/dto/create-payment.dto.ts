@@ -8,6 +8,7 @@ import {
   IsEmail,
   IsNotEmpty,
   Length,
+  IsDate,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaymentStatus, PaymentMethod } from '../entities/payment.entity';
@@ -19,9 +20,9 @@ export class CreatePaymentDto {
   @IsUUID()
   user_id: string;
 
-  @IsOptional()
   @IsString()
-  stripe_payment_id?: string;
+  @IsNotEmpty()
+  reference: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @IsPositive()
@@ -39,6 +40,9 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsEnum(PaymentMethod)
   method?: PaymentMethod;
+
+  @IsDate()
+  created_at: Date;
 }
 export class CreateMpesaPaymentDto {
   @ApiProperty({ example: 1000, description: 'Amount to pay in KES' })
