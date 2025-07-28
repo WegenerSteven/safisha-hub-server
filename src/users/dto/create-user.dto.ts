@@ -38,6 +38,10 @@ export class CreateUserDto {
   phone?: string;
 
   @IsOptional()
+  @IsString()
+  address?: string; // Optional address field
+
+  @IsOptional()
   @IsEnum(Role)
   role?: Role;
 

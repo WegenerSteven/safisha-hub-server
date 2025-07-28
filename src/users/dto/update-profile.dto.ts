@@ -27,6 +27,11 @@ export class UpdateUserProfileDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiProperty({ description: 'User address', required: false })
+  @IsOptional()
+  @IsString()
+  address?: string;
 }
 
 export class UpdateCustomerProfileDto {

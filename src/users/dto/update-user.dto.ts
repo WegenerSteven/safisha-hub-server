@@ -10,4 +10,8 @@ export class UpdateUserDto extends PartialType(
   @IsString()
   @MinLength(8)
   password?: string;
+
+  @IsOptional()
+  @IsString()
+  address?: string; // Optional address field
 }
