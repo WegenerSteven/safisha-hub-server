@@ -1,11 +1,11 @@
 import {
   ConflictException,
   Injectable,
-  NotFoundException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
-import { UserNotFoundException } from './exceptions/user-not-found.exception';
 import { CreateUserDto } from './dto/create-user.dto';
+import { UserNotFoundException } from './exceptions/user-not-found.exception';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RegisterCustomerDto } from './dto/register-customer.dto';
 import { RegisterServiceProviderDto } from './dto/register-service-provider.dto';
@@ -210,6 +210,7 @@ export class UsersService {
         'updated_at',
         // Include role-specific fields
         'address',
+        'avatar',
         'business_name',
         'business_description',
         'business_address',
@@ -347,5 +348,30 @@ export class UsersService {
     },
   ): Promise<void> {
     await this.userRepository.update(userId, stats);
+  }
+
+  // Update user profile
+  async updateProfile(userId: string, updateDto: UpdateUserDto): Promise<User> {
+    await this.userRepository.update(userId, updateDto);
+    return this.findOne(userId);
+  }
+
+  async uploadAvatar(userId: string, file: Express.Multer.File): Promise<User> {
+    if (!file) {
+      throw new BadRequestException('No File uploaded');
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Use FileUploadService to upload to Cloudinary and store the URL
+    const { url } = await this.fileUploadService.saveAvatar(file);
+    user.avatar = url;
+    await this.userRepository.save(user);
+    return user;
   }
 }
