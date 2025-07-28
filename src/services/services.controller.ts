@@ -29,7 +29,7 @@ import {
 } from '@nestjs/swagger';
 import { ServicesService } from './services.service';
 import { BusinessesService } from '../businesses/businesses.service';
-// import { FileUploadService } from '../file-upload/file-upload.service';
+import { FileUploadService } from '../file-upload/file-upload.service';
 import { CreateServiceDto } from './dto/create-service.dto';
 import { UpdateServiceDto } from './dto/update-service.dto';
 import { Service } from './entities/service.entity';
@@ -43,7 +43,7 @@ import { Role } from 'src/users/entities/user.entity';
 import { GetCurrentUserId } from 'src/auth/decorators/get-current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { v4 as uuidv4 } from 'uuid';
-import { diskStorage } from 'multer';
+import { diskStorage, memoryStorage } from 'multer';
 
 // Define an interface for the request object with user property
 interface RequestWithUser {
@@ -61,7 +61,7 @@ export class ServicesController {
   constructor(
     private readonly servicesService: ServicesService,
     private readonly businessesService: BusinessesService,
-    // private readonly fileUploadService: FileUploadService, // Assuming you have a file upload service
+    private readonly fileUploadService: FileUploadService, // Assuming you have a file upload service
   ) {}
   @Get('categories')
   @Public()
@@ -88,13 +88,7 @@ export class ServicesController {
   @ApiOperation({ summary: 'Create a new service' })
   @UseInterceptors(
     FileInterceptor('image', {
-      storage: diskStorage({
-        destination: './uploads/services',
-        filename: (req, file, cb) => {
-          const randomName = uuidv4();
-          cb(null, `${randomName}-${file.originalname}`);
-        },
-      }),
+      storage: memoryStorage(),
       fileFilter: (req, file, cb) => {
         if (file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
           cb(null, true);
@@ -118,7 +112,8 @@ export class ServicesController {
     }
     //handle image upload
     if (image) {
-      createServiceDto.image_url = `/uploads/services/${image.filename}`;
+      const { url } = await this.fileUploadService.saveServiceImage(image);
+      createServiceDto.image_url = url;
     }
     return this.servicesService.create(createServiceDto);
   }

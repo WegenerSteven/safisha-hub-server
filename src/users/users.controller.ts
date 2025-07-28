@@ -11,20 +11,16 @@ import {
   ClassSerializerInterceptor,
   UseInterceptors,
   Put,
-  HttpStatus,
-  HttpCode,
   UseGuards,
-  Request,
   UploadedFile,
-  Res,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { RegisterCustomerDto } from './dto/register-customer.dto';
 import { RegisterServiceProviderDto } from './dto/register-service-provider.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, Role } from './entities/user.entity';
-import { UpdateRoleDto } from './dto/update-role.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -32,12 +28,9 @@ import {
   ApiQuery,
   ApiParam,
   ApiBearerAuth,
-  ApiConsumes,
-  ApiBody,
 } from '@nestjs/swagger';
 import { AtGuard } from '../auth/guards/at.guard';
-import { FileInterceptor } from '@nestjs/platform-express';
-import { Response } from 'express';
+import { GetCurrentUserId } from 'src/auth/decorators/get-current-user.decorator';
 
 @ApiTags('users')
 @Controller('users')
@@ -252,5 +245,27 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found.' })
   async remove(@Param('id', ParseUUIDPipe) id: string) {
     return this.usersService.remove(id);
+  }
+
+  @Put('profile')
+  @UseGuards(AtGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update current user profile' })
+  async updateProfile(
+    @GetCurrentUserId() userId: string,
+    @Body() updateDto: UpdateUserDto,
+  ) {
+    return this.usersService.updateProfile(userId, updateDto);
+  }
+
+  @Post('profile/avatar')
+  @UseGuards(AtGuard)
+  @ApiBearerAuth()
+  @UseInterceptors(FileInterceptor('avatar'))
+  async uploadAvatar(
+    @GetCurrentUserId() userId: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return await this.usersService.uploadAvatar(userId, file);
   }
 }
