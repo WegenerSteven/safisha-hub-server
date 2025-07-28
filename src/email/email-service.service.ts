@@ -19,17 +19,21 @@ export class EmailService {
       'http://localhost:3000';
     const verificationUrl = `${frontendUrl}/verify-email?token=${verificationToken}`;
 
-    await this.mailerService.sendMail({
-      to: email,
-      subject: '🎉 Welcome to Safarihub - Verify Your Email',
-      template: 'email-verification', //this will look for email-template
-      context: {
-        firstName,
-        verificationUrl,
-        companyName: 'SafishaHub',
-        supportEmail: 'support@safishahub.com',
-      },
-    });
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: '🎉 Welcome to Safarihub - Verify Your Email',
+        template: 'email-verification', //this will look for email-template
+        context: {
+          firstName,
+          verificationUrl,
+          companyName: 'SafishaHub',
+          supportEmail: 'support@safishahub.com',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send verification email:', error);
+    }
   }
 
   async sendWelcomeEmail(
@@ -37,18 +41,22 @@ export class EmailService {
     firstName: string,
     role: string,
   ): Promise<void> {
-    await this.mailerService.sendMail({
-      to: email,
-      subject: '🚗 Welcome to SafishaHub - Your Account is Ready!',
-      template: 'welcome',
-      context: {
-        firstName,
-        role: role === 'service_provider' ? 'Service Provider' : 'Customer',
-        loginUrl: `${this.configService.getOrThrow<string>('FRONTEND_URL')}/login`,
-        dashboardUrl: `${this.configService.getOrThrow<string>('FRONTEND_URL')}/dashboard`,
-        companyName: 'SafishaHub',
-      },
-    });
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: '🚗 Welcome to SafishaHub - Your Account is Ready!',
+        template: 'welcome',
+        context: {
+          firstName,
+          role: role === 'service_provider' ? 'Service Provider' : 'Customer',
+          loginUrl: `${this.configService.getOrThrow<string>('FRONTEND_URL')}/login`,
+          dashboardUrl: `${this.configService.getOrThrow<string>('FRONTEND_URL')}/dashboard`,
+          companyName: 'SafishaHub',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send welcome email:', error);
+    }
   }
 
   async sendPasswordResetEmail(
@@ -59,17 +67,21 @@ export class EmailService {
     const frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-    await this.mailerService.sendMail({
-      to: email,
-      subject: '🔐 SafishaHub - Reset Your Password',
-      template: 'password-reset',
-      context: {
-        firstName,
-        resetUrl,
-        companyName: 'SafishaHub',
-        supportEmail: 'support@safishahub.com',
-      },
-    });
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: '🔐 SafishaHub - Reset Your Password',
+        template: 'password-reset',
+        context: {
+          firstName,
+          resetUrl,
+          companyName: 'SafishaHub',
+          supportEmail: 'support@safishahub.com',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send password reset email:', error);
+    }
   }
 
   /**
@@ -87,17 +99,21 @@ export class EmailService {
     message: string,
     templateData?: Record<string, any>,
   ): Promise<void> {
-    await this.mailerService.sendMail({
-      to: email,
-      subject,
-      template: 'notification',
-      context: {
-        firstName,
-        message,
-        ...templateData,
-        companyName: 'SafishaHub',
-        supportEmail: 'support@safishahub.com',
-      },
-    });
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject,
+        template: 'notification',
+        context: {
+          firstName,
+          message,
+          ...templateData,
+          companyName: 'SafishaHub',
+          supportEmail: 'support@safishahub.com',
+        },
+      });
+    } catch (error) {
+      console.error('Failed to send notification email:', error);
+    }
   }
 }

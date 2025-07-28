@@ -20,9 +20,11 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
             user: configService.getOrThrow<string>('MAIL_USER'),
             pass: configService.getOrThrow<string>('MAIL_PASSWORD'),
           },
+          logger: true,
+          debug: true, // Enable for debugging purposes
         },
         defaults: {
-          from: configService.getOrThrow<string>('MAIL_FROM'),
+          from: `"${configService.getOrThrow('MAIL_FROM_NAME')}" <${configService.getOrThrow('MAIL_FROM')}>`,
         },
         template: {
           dir: join(__dirname, 'templates'),
