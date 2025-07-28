@@ -25,7 +25,7 @@ import { FileUploadService } from 'src/file-upload/file-upload.service';
     BusinessesModule,
   ],
   controllers: [ServicesController],
-  providers: [ServicesService],
+  providers: [ServicesService, FileUploadService],
   exports: [ServicesService, TypeOrmModule],
 })
 export class ServicesModule {}
