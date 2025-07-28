@@ -1,68 +1,104 @@
-import { Injectable } from '@nestjs/common';
-import * as fs from 'fs';
-import * as path from 'path';
-import { promisify } from 'util';
-import { v4 as uuidv4 } from 'uuid';
-
-const mkdirAsync = promisify(fs.mkdir);
-const existsAsync = promisify(fs.exists);
+import { Injectable, Logger } from '@nestjs/common';
+import { v2 as cloudinary } from 'cloudinary';
+import type { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
+import { ConfigService } from '@nestjs/config';
+import { Readable } from 'stream';
 
 @Injectable()
 export class FileUploadService {
-  // Base upload directory
-  private readonly uploadDir = path.join(process.cwd(), 'uploads');
+  private readonly logger = new Logger(FileUploadService.name);
 
-  // Avatar upload directory
-  private readonly avatarsDir = path.join(this.uploadDir, 'avatars');
-
-  constructor() {
-    // Ensure directories exist
-    void this.ensureDirectoriesExist();
+  constructor(private readonly configService: ConfigService) {
+    cloudinary.config({
+      cloud_name: this.configService.getOrThrow<string>('CLOUDINARY_CLOUD_NAME'),
+      api_key: this.configService.getOrThrow<string>('CLOUDINARY_API_KEY'),
+      api_secret: this.configService.getOrThrow<string>('CLOUDINARY_API_SECRET'),
+      secure: true,
+    });
   }
 
   /**
-   * Ensure upload directories exist
+   * Generic file upload method
    */
-  private async ensureDirectoriesExist(): Promise<void> {
-    if (!(await existsAsync(this.uploadDir))) {
-      await mkdirAsync(this.uploadDir, { recursive: true });
+  async uploadFile(
+    file: Express.Multer.File,
+    options: {
+      folder: string;
+      resourceType?: 'image' | 'video' | 'raw' | 'auto';
+      transformation?: Record<string, any>;
+    },
+  ): Promise<{ url: string; publicId: string }> {
+    try {
+      const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: options.folder,
+            resource_type: options.resourceType || 'auto',
+            transformation: options.transformation,
+          },
+          (
+            error: UploadApiErrorResponse | undefined,
+            result: UploadApiResponse | undefined,
+          ) => {
+            if (error) {
+              this.logger.error(
+                `Cloudinary upload error: ${error.message}`,
+                error.stack,
+              );
+              reject(new Error(error?.message || 'Cloudinary upload error'));
+            } else if (!result) {
+              reject(new Error('Cloudinary upload returned no result'));
+            } else {
+              resolve(result);
+            }
+          },
+        );
+
+        Readable.from(file.buffer).pipe(uploadStream);
+      });
+
+      return {
+        url: result.secure_url,
+        publicId: result.public_id,
+      };
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`File upload failed: ${errorMessage}`, errorStack);
+      throw new Error(`File upload failed: ${errorMessage}`);
     }
+  }
 
-    if (!(await existsAsync(this.avatarsDir))) {
-      await mkdirAsync(this.avatarsDir, { recursive: true });
+  /**
+   * Delete file from Cloudinary
+   */
+  async deleteFile(publicId: string): Promise<void> {
+    try {
+      await cloudinary.uploader.destroy(publicId);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`File deletion failed: ${errorMessage}`, errorStack);
+      throw new Error(`File deletion failed: ${errorMessage}`);
     }
   }
 
   /**
-   * Save avatar file and return the filename
+   * Specialized methods for specific use cases
    */
-  saveAvatar(file: Express.Multer.File): string {
-    // Generate unique filename with original extension
-    const fileExt = path.extname(file.originalname) || '.jpg';
-    const filename = `${uuidv4()}${fileExt}`;
-
-    // Create write stream to save file
-    const filePath = path.join(this.avatarsDir, filename);
-    fs.writeFileSync(filePath, file.buffer);
-
-    // Return the filename that can be stored in the database
-    return filename;
+  async saveAvatar(file: Express.Multer.File) {
+    return this.uploadFile(file, {
+      folder: 'avatars',
+      transformation: { width: 200, height: 200, crop: 'fill' },
+    });
   }
 
-  /**
-   * Get the full path to an avatar file
-   */
-  getAvatarPath(filename: string): string {
-    return path.join(this.avatarsDir, filename);
-  }
-
-  /**
-   * Delete an avatar file
-   */
-  async deleteAvatar(filename: string): Promise<void> {
-    const filePath = this.getAvatarPath(filename);
-    if (await existsAsync(filePath)) {
-      await promisify(fs.unlink)(filePath);
-    }
+  async saveServiceImage(file: Express.Multer.File) {
+    return this.uploadFile(file, {
+      folder: 'services',
+      transformation: { width: 800, height: 600, crop: 'limit' },
+    });
   }
 }
