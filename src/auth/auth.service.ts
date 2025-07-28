@@ -239,7 +239,21 @@ export class AuthService {
   async validateUser(userId: string): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { id: userId, is_active: true },
-      select: ['id', 'email', 'role', 'first_name', 'last_name', 'is_active'],
+      select: [
+        'id',
+        'email',
+        'role',
+        'first_name',
+        'last_name',
+        'is_active',
+        'phone',
+        'address',
+        'avatar',
+        'email_verified_at',
+        'created_at',
+        'updated_at',
+        // Add any other fields you need
+      ],
     });
 
     if (!user) {
@@ -517,6 +531,31 @@ export class AuthService {
         user: userResponse,
         ...tokens,
       };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  // Delete user account
+  async deleteAccount(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Use a transaction to ensure all related data is deleted safely
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Delete user and related data (e.g., bookings, reviews)
+      await queryRunner.manager.delete(User, userId);
+      await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;

@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Query,
+  Delete,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -288,5 +289,18 @@ export class AuthController {
     @Body() registerDto: RegisterServiceProviderDto,
   ) {
     return await this.authService.registerServiceProvider(registerDto);
+  }
+
+  @Delete('delete-account')
+  @UseGuards(AtGuard)
+  @ApiOperation({
+    summary: 'Delete current user account',
+    description: 'Permanently delete the authenticated user account',
+  })
+  async deleteAccount(
+    @GetCurrentUserId() userId: string,
+  ): Promise<{ message: string }> {
+    await this.authService.deleteAccount(userId);
+    return { message: 'Account deleted successfully' };
   }
 }
