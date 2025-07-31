@@ -5,6 +5,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import * as Handlebars from 'handlebars';
 
 @Module({
   imports: [
@@ -42,3 +43,8 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
   exports: [EmailService],
 })
 export class EmailServiceModule {}
+
+// Register 'eq' helper for Handlebars templates
+Handlebars.registerHelper('eq', function (a, b) {
+  return a === b;
+});
