@@ -353,7 +353,14 @@ export class AuthService {
         email_verified_at: new Date(),
       });
 
-      return { message: 'Email verified successfully' };
+      // Send welcome email after verification
+      await this.emailService.sendWelcomeEmail(
+        user.email,
+        user.first_name,
+        user.role,
+      );
+
+      return { message: 'Email verified successfully. Welcome email sent.' };
     } catch {
       throw new UnauthorizedException('Invalid or expired verification token');
     }
@@ -389,9 +396,12 @@ export class AuthService {
       },
     );
 
-    // TODO: Send verification email with the token
-    // This would integrate with your email service
-    console.log(`Verification token for ${email}: ${verificationToken}`);
+    // Actually send the verification email
+    await this.emailService.sendVerificationEmail(
+      user.email,
+      user.first_name,
+      verificationToken,
+    );
 
     return { message: 'Verification email sent successfully' };
   }
@@ -436,6 +446,12 @@ export class AuthService {
 
       // Update refresh token
       await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
+      // Send welcome email
+      await this.emailService.sendWelcomeEmail(
+        savedUser.email,
+        savedUser.first_name,
+        savedUser.role,
+      );
 
       // Send verification email
       await this.resendVerificationEmail(savedUser.email);
@@ -494,19 +510,21 @@ export class AuthService {
 
       // Register business for the service provider (provide a valid CreateBusinessDto)
       // TODO: Replace these placeholder values with real business registration data from the user
-      await this.businessesService.create({
-        user_id: savedUser.id,
-        name: `${registerDto.first_name}'s Business`,
-        type: 'Car Wash Service',
-        description: 'Car washing and detailing services',
-        business_address: registerDto.business_address || '',
-        city: registerDto.city || '',
-        state: registerDto.state || '',
-        zip_code: registerDto.zip_code || '',
-        phone: registerDto.phone || '',
-        email: registerDto.email,
-        // image, location_id, operating_hours can be added if available
-      });
+      await this.businessesService.create(
+        {
+          name: `${registerDto.first_name}'s Business`,
+          type: 'Car Wash Service',
+          description: 'Car washing and detailing services',
+          business_address: registerDto.business_address || '',
+          city: registerDto.city || '',
+          state: registerDto.state || '',
+          zip_code: registerDto.zip_code || '',
+          phone: registerDto.phone || '',
+          email: registerDto.email,
+          // image, location_id, operating_hours can be added if available
+        },
+        savedUser.id,
+      );
 
       // Generate tokens
       const tokens = await this.getTokens(
@@ -517,6 +535,12 @@ export class AuthService {
 
       // Update refresh token
       await this.updateRefreshToken(savedUser.id, tokens.refreshToken);
+      // Send welcome email
+      await this.emailService.sendWelcomeEmail(
+        savedUser.email,
+        savedUser.first_name,
+        savedUser.role,
+      );
 
       // Send verification email
       await this.resendVerificationEmail(savedUser.email);
@@ -553,7 +577,10 @@ export class AuthService {
     await queryRunner.startTransaction();
 
     try {
-      // Delete user and related data (e.g., bookings, reviews)
+      // Delete businesses linked to this user
+      await queryRunner.manager.delete('businesses', { user: userId });
+      // TODO: Delete other related entities if needed (bookings, reviews, etc.)
+      // Delete user
       await queryRunner.manager.delete(User, userId);
       await queryRunner.commitTransaction();
     } catch (error) {

@@ -81,7 +81,7 @@ async function bootstrap() {
       showRequestDuration: true,
     },
     customSiteTitle: 'Safisha Hub API Documentation',
-    customfavIcon: '/favicon.ico',
+    customfavIcon: '/logo.svg',
     customCss: `
       .swagger-ui .topbar { display: none; }
       .swagger-ui .info { margin-bottom: 20px; }

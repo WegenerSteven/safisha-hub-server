@@ -216,7 +216,7 @@ export class AuthController {
 
   @Public()
   @ApiBearerAuth()
-  @Get('verify-email')
+  @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify email address' })
   @ApiResponse({
@@ -227,7 +227,7 @@ export class AuthController {
     status: 400,
     description: 'Invalid or expired verification token.',
   })
-  async verifyEmail(@Query('token') token: string) {
+  async verifyEmail(@Body('token') token: string) {
     return await this.authService.verifyEmail(token);
   }
 
