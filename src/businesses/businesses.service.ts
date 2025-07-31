@@ -18,13 +18,14 @@ export class BusinessesService {
     // private locationsService: LocationsService, // Note the plural name: locationsService
   ) {}
 
-  async create(createBusinessDto: CreateBusinessDto): Promise<Business> {
+  async create(
+    createBusinessDto: CreateBusinessDto,
+    userId: string,
+  ): Promise<Business> {
     // Verify user exists
-    const user = await this.usersService.findOne(createBusinessDto.user_id);
+    const user = await this.usersService.findOne(userId);
     if (!user) {
-      throw new NotFoundException(
-        `User with ID ${createBusinessDto.user_id} not found`,
-      );
+      throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
     // Create business entity

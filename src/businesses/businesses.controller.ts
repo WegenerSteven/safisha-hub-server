@@ -47,10 +47,7 @@ export class BusinessesController {
         HttpStatus.BAD_REQUEST,
       );
     }
-
-    // Set the user_id to current user regardless of what's in DTO
-    createBusinessDto.user_id = userId;
-    return this.businessesService.create(createBusinessDto);
+    return this.businessesService.create(createBusinessDto, userId);
   }
 
   @Get('my-business')
