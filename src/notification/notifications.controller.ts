@@ -6,7 +6,10 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
+import { AtGuard } from 'src/auth/guards';
+import { GetCurrentUserId } from 'src/auth/decorators/get-current-user.decorator';
 // import { ApiTags } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { CreateNotificationDto } from './dto/create-notification.dto';
@@ -15,7 +18,7 @@ import { UpdateNotificationDto } from './dto/update-notification.dto';
 // @ApiTags('notifications')
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(private readonly notificationsService: NotificationsService) { }
 
   @Post()
   create(@Body() createNotificationDto: CreateNotificationDto) {
@@ -23,8 +26,9 @@ export class NotificationsController {
   }
 
   @Get()
-  findAll() {
-    return this.notificationsService.findAll();
+  @UseGuards(AtGuard)
+  findAll(@GetCurrentUserId() userId: string) {
+    return this.notificationsService.findAll(userId);
   }
 
   @Get(':id')
