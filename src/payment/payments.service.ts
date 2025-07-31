@@ -10,11 +10,19 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-  ) {}
+  ) { }
 
   async create(createPaymentDto: CreatePaymentDto) {
-    const payment = this.paymentRepository.create(createPaymentDto);
-    return this.paymentRepository.save(payment);
+    try {
+      const payment = this.paymentRepository.create(createPaymentDto);
+      return await this.paymentRepository.save(payment);
+    } catch (error: any) {
+      // Postgres unique violation error code is 23505
+      if (error.code === '23505' && error.detail?.includes('booking_id')) {
+        throw new Error('A payment already exists for this booking.');
+      }
+      throw error;
+    }
   }
 
   async findByUserId(userId: string) {
@@ -23,6 +31,10 @@ export class PaymentsService {
       order: { created_at: 'DESC' },
       relations: ['booking', 'user'],
     });
+  }
+
+  async findByBookingId(bookingId: string) {
+    return this.paymentRepository.findOne({ where: { booking_id: bookingId } });
   }
 
   async findAll() {

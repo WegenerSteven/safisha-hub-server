@@ -3,14 +3,12 @@ import { Get, UseGuards } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { PaystackService } from './paystack.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Public } from '../auth/decorators/public.decorators';
 import { AtGuard } from 'src/auth/guards';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { GetCurrentUserId } from 'src/auth/decorators/get-current-user.decorator';
 import { PaymentStatus } from './entities/payment.entity';
 
 @ApiTags('payments')
-@Public()
 @Controller('payments')
 export class PaymentsController {
   constructor(
@@ -96,7 +94,11 @@ export class PaymentsController {
     @Body() body: { reference: string; bookingId?: string; amount: number },
     @GetCurrentUserId() userId: string,
   ) {
+    // Enhanced debug logging
+    console.log('[verifyPayment] userId:', userId);
+    console.log('[verifyPayment] request body:', body);
     const result = await this.paystackService.verifyPayment(body.reference);
+    console.log('[verifyPayment] paystackService result:', result);
     if (
       typeof result === 'object' &&
       result !== null &&
@@ -104,8 +106,34 @@ export class PaymentsController {
       result.status === true
     ) {
       if (!body.bookingId) {
+        console.error(
+          '[verifyPayment] ERROR: Missing bookingId in payment verification request',
+        );
         throw new Error('Missing bookingId in payment verification request');
       }
+      // Check for existing payment for this booking
+      const existingPayment = await this.paymentsService.findByBookingId(
+        body.bookingId,
+      );
+      if (existingPayment) {
+        console.error(
+          '[verifyPayment] ERROR: Duplicate payment attempt for bookingId:',
+          body.bookingId,
+          'reference:',
+          body.reference,
+        );
+        throw new Error('A payment already exists for this booking.');
+      }
+      console.log(
+        '[verifyPayment] Creating payment for bookingId:',
+        body.bookingId,
+        'reference:',
+        body.reference,
+        'userId:',
+        userId,
+        'amount:',
+        body.amount,
+      );
       await this.paymentsService.create({
         reference: body.reference,
         booking_id: body.bookingId,
@@ -114,6 +142,10 @@ export class PaymentsController {
         status: PaymentStatus.SUCCEEDED as PaymentStatus,
         created_at: new Date(),
       });
+      console.log(
+        '[verifyPayment] Payment created successfully for bookingId:',
+        body.bookingId,
+      );
     }
     return result;
   }

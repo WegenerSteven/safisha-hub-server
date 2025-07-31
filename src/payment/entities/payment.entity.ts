@@ -6,6 +6,7 @@ import {
   JoinColumn,
   OneToOne,
   CreateDateColumn,
+  Unique,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Booking } from '../../bookings/entities/booking.entity';
@@ -27,6 +28,7 @@ export enum PaymentMethod {
 }
 
 @Entity('payments')
+@Unique(['booking_id'])
 export class Payment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
