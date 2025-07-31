@@ -1,7 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   IsString,
-  IsUUID,
   IsOptional,
   IsNotEmpty,
   IsEmail,
@@ -9,11 +8,6 @@ import {
 } from 'class-validator';
 
 export class CreateBusinessDto {
-  @ApiProperty({ description: 'User ID who owns this business' })
-  @IsUUID()
-  @IsNotEmpty()
-  user_id: string;
-
   @ApiProperty({ description: 'Business name' })
   @IsString()
   @IsNotEmpty()
