@@ -18,7 +18,7 @@ import { UpdateNotificationDto } from './dto/update-notification.dto';
 // @ApiTags('notifications')
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) { }
+  constructor(private readonly notificationsService: NotificationsService) {}
 
   @Post()
   create(@Body() createNotificationDto: CreateNotificationDto) {

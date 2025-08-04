@@ -12,13 +12,16 @@ async function bootstrap() {
 
   // Enable CORS for frontend integration
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:5173',
-      'https://safisha-hub-server.onrender.com/api/docs',
-      'https://safisha-hub-server.onrender.com',
-    ],
+    origin:
+      process.env.NODE_ENV === 'production'
+        ? [
+            'http://localhost:3000',
+            'http://localhost:3001',
+            'http://localhost:5173',
+            'https://safisha-hub-server.onrender.com/api/docs',
+            'https://safisha-hub-server.onrender.com',
+          ]
+        : true,
     methods: ['GET', 'POST', 'PUT', 'UPDATE', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
@@ -68,8 +71,19 @@ async function bootstrap() {
     .addTag('payments', 'Payment processing endpoints')
     .addTag('reviews', 'Review management endpoints')
     .addBearerAuth()
-    .addServer(`http://localhost:${PORT}/`, 'Development Server')
-    .addServer(`https://safisha-hub-server.onrender.com/api/docs`, 'Production Server')
+    // .addServer(`http://localhost:${PORT}/`, 'Development Server')
+    // .addServer(
+    //   `https://safisha-hub-server.onrender.com/api/docs`,
+    //   'Production Server',
+    // )
+    .addServer(
+      process.env.NODE_ENV === 'production'
+        ? 'https://safisha-hub-server.onrender.com/api/docs'
+        : `http://localhost:${PORT}/`,
+      process.env.NODE_ENV === 'production'
+        ? 'Production Server'
+        : 'Development Server',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

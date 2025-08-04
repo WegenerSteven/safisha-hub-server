@@ -10,7 +10,7 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-  ) { }
+  ) {}
 
   async create(createPaymentDto: CreatePaymentDto) {
     try {
