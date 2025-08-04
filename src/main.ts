@@ -78,7 +78,7 @@ async function bootstrap() {
     // )
     .addServer(
       process.env.NODE_ENV === 'production'
-        ? 'https://safisha-hub-server.onrender.com/api/docs'
+        ? 'https://safisha-hub-server.onrender.com'
         : `http://localhost:${PORT}/`,
       process.env.NODE_ENV === 'production'
         ? 'Production Server'
