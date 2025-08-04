@@ -69,7 +69,7 @@ async function bootstrap() {
     .addTag('reviews', 'Review management endpoints')
     .addBearerAuth()
     .addServer(`http://localhost:${PORT}/`, 'Development Server')
-    .addServer(`https://safisha-hub-server.onrender.com/`, 'Production Server')
+    .addServer(`https://safisha-hub-server.onrender.com/api/docs`, 'Production Server')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
