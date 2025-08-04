@@ -28,7 +28,10 @@ import * as Handlebars from 'handlebars';
           from: `"${configService.getOrThrow('MAIL_FROM_NAME')}" <${configService.getOrThrow('MAIL_FROM')}>`,
         },
         template: {
-          dir: join(__dirname, 'email/templates'),
+          dir:
+            process.env.NODE_ENV === 'production'
+              ? join(process.cwd(), 'dist/email/templates')
+              : join(__dirname, 'templates'),
           adapter: new HandlebarsAdapter(),
           options: {
             strict: true,
