@@ -16,6 +16,8 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:5173',
+      'https://safisha-hub-server.onrender.com/api/docs',
+      'https://safisha-hub-server.onrender.com',
     ],
     methods: ['GET', 'POST', 'PUT', 'UPDATE', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -67,7 +69,7 @@ async function bootstrap() {
     .addTag('reviews', 'Review management endpoints')
     .addBearerAuth()
     .addServer(`http://localhost:${PORT}/`, 'Development Server')
-    .addServer(`https://api.safishahub.com/`, 'Production Server')
+    .addServer(`https://safisha-hub-server.onrender.com/`, 'Production Server')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
