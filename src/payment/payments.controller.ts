@@ -1,4 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  InternalServerErrorException,
+  Post,
+} from '@nestjs/common';
 import { Get, UseGuards } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { PaystackService } from './paystack.service';
@@ -87,7 +93,7 @@ export class PaymentsController {
   }
 
   @Post('verify')
-  @UseGuards(AtGuard, RolesGuard)
+  @UseGuards(AtGuard)
   @ApiOperation({ summary: 'Verify payment status' })
   @ApiResponse({ status: 200, description: 'Payment verified' })
   async verifyPayment(
@@ -97,56 +103,84 @@ export class PaymentsController {
     // Enhanced debug logging
     console.log('[verifyPayment] userId:', userId);
     console.log('[verifyPayment] request body:', body);
-    const result = await this.paystackService.verifyPayment(body.reference);
-    console.log('[verifyPayment] paystackService result:', result);
-    if (
-      typeof result === 'object' &&
-      result !== null &&
-      'status' in result &&
-      result.status === true
-    ) {
-      if (!body.bookingId) {
-        console.error(
-          '[verifyPayment] ERROR: Missing bookingId in payment verification request',
+
+    try {
+      const result = await this.paystackService.verifyPayment(body.reference);
+      console.log('[verifyPayment] paystackService result:', result);
+
+      if (
+        typeof result === 'object' &&
+        result !== null &&
+        'status' in result &&
+        result.status === true
+      ) {
+        if (!body.bookingId) {
+          console.error(
+            '[verifyPayment] ERROR: Missing bookingId in payment verification request',
+          );
+          throw new BadRequestException(
+            'Missing bookingId in payment verification request',
+          );
+        }
+        // Check for existing payment for this booking
+        const existingPayment = await this.paymentsService.findByBookingId(
+          body.bookingId,
         );
-        throw new Error('Missing bookingId in payment verification request');
-      }
-      // Check for existing payment for this booking
-      const existingPayment = await this.paymentsService.findByBookingId(
-        body.bookingId,
-      );
-      if (existingPayment) {
-        console.error(
-          '[verifyPayment] ERROR: Duplicate payment attempt for bookingId:',
+        if (existingPayment) {
+          console.error(
+            '[verifyPayment] ERROR: Duplicate payment attempt for bookingId:',
+            body.bookingId,
+            'reference:',
+            body.reference,
+          );
+          return {
+            success: true,
+            message: 'Payment already verified and recorded',
+            data: existingPayment,
+            alreadyProcessed: true,
+          };
+        }
+        console.log(
+          '[verifyPayment] Creating payment for bookingId:',
           body.bookingId,
           'reference:',
           body.reference,
+          'userId:',
+          userId,
+          'amount:',
+          body.amount,
         );
-        throw new Error('A payment already exists for this booking.');
+
+        const payment = await this.paymentsService.create({
+          reference: body.reference,
+          booking_id: body.bookingId,
+          amount: body.amount,
+          user_id: userId,
+          status: PaymentStatus.SUCCEEDED as PaymentStatus,
+          created_at: new Date(),
+        });
+        console.log(
+          '[verifyPayment] Payment created successfully for bookingId:',
+          body.bookingId,
+        );
+
+        return {
+          success: true,
+          message: 'Payment verification successful',
+          data: payment,
+        };
       }
-      console.log(
-        '[verifyPayment] Creating payment for bookingId:',
-        body.bookingId,
-        'reference:',
-        body.reference,
-        'userId:',
-        userId,
-        'amount:',
-        body.amount,
-      );
-      await this.paymentsService.create({
-        reference: body.reference,
-        booking_id: body.bookingId,
-        amount: body.amount,
-        user_id: userId,
-        status: PaymentStatus.SUCCEEDED as PaymentStatus,
-        created_at: new Date(),
-      });
-      console.log(
-        '[verifyPayment] Payment created successfully for bookingId:',
-        body.bookingId,
+      return result;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      console.error('[verifyPayment] Error:', errorMessage);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(
+        errorMessage || 'Payment verification failed',
       );
     }
-    return result;
   }
 }
