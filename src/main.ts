@@ -18,8 +18,8 @@ async function bootstrap() {
             'http://localhost:3000',
             'http://localhost:3001',
             'http://localhost:5173',
-            // 'https://safisha-hub-server.onrender.com/api/docs',
-            // 'https://safisha-hub-server.onrender.com',
+            'https://safisha-hub-server.onrender.com/api/docs',
+            'https://safisha-hub-server.onrender.com',
           ]
         : true,
     methods: ['GET', 'POST', 'PUT', 'UPDATE', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -76,14 +76,14 @@ async function bootstrap() {
       `https://safisha-hub-server.onrender.com/api/docs`,
       'Production Server',
     )
-    // .addServer(
-    //   process.env.NODE_ENV === 'development'
-    //     ? 'https://safisha-hub-server.onrender.com'
-    //     : `http://localhost:${PORT}/`,
-    //   process.env.NODE_ENV === 'development'
-    //     ? 'Production Server'
-    //     : 'Development Server',
-    // )
+    .addServer(
+      process.env.NODE_ENV === 'development'
+        ? 'https://safisha-hub-server.onrender.com'
+        : `http://localhost:${PORT}/`,
+      process.env.NODE_ENV === 'development'
+        ? 'Production Server'
+        : 'Development Server',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
