@@ -13,7 +13,7 @@ async function bootstrap() {
   // Enable CORS for frontend integration
   app.enableCors({
     origin:
-      process.env.NODE_ENV === 'development'
+      process.env.NODE_ENV === 'production'
         ? [
             'http://localhost:3000',
             'http://localhost:3001',
@@ -77,7 +77,7 @@ async function bootstrap() {
       'Production Server',
     )
     .addServer(
-      process.env.NODE_ENV === 'development'
+      process.env.NODE_ENV === 'production'
         ? 'https://safisha-hub-server.onrender.com'
         : `http://localhost:${PORT}/`,
       process.env.NODE_ENV === 'development'
