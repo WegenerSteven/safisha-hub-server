@@ -17,6 +17,7 @@ async function bootstrap() {
         ? [
             'http://localhost:3000',
             'http://localhost:3001',
+            'https://safisha-hub-client.vercel.app/',
             'http://localhost:5173',
             'https://safisha-hub-server.onrender.com/api/docs',
             'https://safisha-hub-server.onrender.com',
