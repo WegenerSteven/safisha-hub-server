@@ -12,17 +12,29 @@ async function bootstrap() {
 
   // Enable CORS for frontend integration
   app.enableCors({
-    origin:
-      process.env.NODE_ENV === 'production'
-        ? [
-            'http://localhost:3000',
-            'http://localhost:3001',
-            'https://safisha-hub-client.vercel.app/',
-            'http://localhost:5173',
-            'https://safisha-hub-server.onrender.com/api/docs',
-            'https://safisha-hub-server.onrender.com',
-          ]
-        : true,
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'https://safisha-hub-client.vercel.app',
+        'http://localhost:5173',
+        'https://safisha-hub-server.onrender.com/api/docs',
+        'https://safisha-hub-server.onrender.com',
+      ];
+      //allow request with no origin (mobile apps, curl requests, etc)
+      if (
+        !origin ||
+        allowedOrigins.some(
+          (allowedOrigin) =>
+            origin === allowedOrigin || origin.endsWith('.vercel.app'),
+        )
+      ) {
+        callback(null, true);
+      } else {
+        console.log(`Blocked CORS for: ${origin}`);
+        callback(null, false);
+      }
+    },
     methods: ['GET', 'POST', 'PUT', 'UPDATE', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
       'Content-Type',
